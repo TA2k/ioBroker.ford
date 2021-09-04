@@ -142,22 +142,22 @@ class Ford extends utils.Adapter {
             .then(async (res) => {
                 this.log.debug(JSON.stringify(res.data));
                 for (const vehicle of res.data.userVehicles.vehicleDetails) {
-                    this.vinArray.push(vehicle.vin);
-                    await this.setObjectNotExistsAsync(vehicle.vin, {
+                    this.vinArray.push(vehicle.VIN);
+                    await this.setObjectNotExistsAsync(vehicle.VIN, {
                         type: "device",
                         common: {
                             name: vehicle.model,
                         },
                         native: {},
                     });
-                    await this.setObjectNotExistsAsync(vehicle.vin + ".remote", {
+                    await this.setObjectNotExistsAsync(vehicle.VIN + ".remote", {
                         type: "channel",
                         common: {
                             name: "Remote Controls",
                         },
                         native: {},
                     });
-                    await this.setObjectNotExistsAsync(vehicle.vin + ".general", {
+                    await this.setObjectNotExistsAsync(vehicle.VIN + ".general", {
                         type: "channel",
                         common: {
                             name: "General Car Information",
@@ -167,7 +167,7 @@ class Ford extends utils.Adapter {
 
                     const remoteArray = [{ command: "engine/start" }, { command: "doors/lock" }];
                     remoteArray.forEach((remote) => {
-                        this.setObjectNotExists(vehicle.vin + ".remote." + remote.command, {
+                        this.setObjectNotExists(vehicle.VIN + ".remote." + remote.command, {
                             type: "state",
                             common: {
                                 name: remote.name || "",
@@ -179,7 +179,7 @@ class Ford extends utils.Adapter {
                             native: {},
                         });
                     });
-                    this.json2iob.parse(vehicle.vin + ".general", vehicle);
+                    this.json2iob.parse(vehicle.VIN + ".general", vehicle);
                 }
             })
             .catch((error) => {
