@@ -165,7 +165,11 @@ class Ford extends utils.Adapter {
                         native: {},
                     });
 
-                    const remoteArray = [{ command: "engine/start" }, { command: "doors/lock" }];
+                    const remoteArray = [
+                        { command: "engine/start", name: "True = Start, False = Stop" },
+                        { command: "doors/lock", name: "True = Lock, False = Unlock" },
+                        { command: "status", name: "True = Request Status Update" },
+                    ];
                     remoteArray.forEach((remote) => {
                         this.setObjectNotExists(vehicle.VIN + ".remote." + remote.command, {
                             type: "state",
