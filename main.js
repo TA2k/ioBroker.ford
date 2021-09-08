@@ -190,12 +190,8 @@ class Ford extends utils.Adapter {
 
     async updateVehicles() {
         const statusArray = [
-            { path: "status", url: "https://api.mps.ford.com/api/vehicles/v2/$vin/status", desc: "Current status of the car" },
-            { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status of the car" },
-            { path: "statusv1", url: "https://api.mps.ford.com/api/fordconnect/vehicles/v1/$vin/status", desc: "Current status of the car" },
-            { path: "statusv4", url: "https://api.mps.ford.com/api/vehicles/v4/$vin/status", desc: "Current status of the car" },
-            { path: "statususv4b", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status of the car" },
-            { path: "statususv4c", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status?lrdt=01-01-1970+00%3A00%3A00", desc: "Current status of the car" },
+            { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
+            { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
         ];
 
         const headers = {
