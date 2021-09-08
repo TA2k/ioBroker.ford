@@ -146,7 +146,7 @@ class Ford extends utils.Adapter {
                     await this.setObjectNotExistsAsync(vehicle.VIN, {
                         type: "device",
                         common: {
-                            name: vehicle.model,
+                            name: vehicle.nickName,
                         },
                         native: {},
                     });
