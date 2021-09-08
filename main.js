@@ -189,7 +189,7 @@ class Ford extends utils.Adapter {
     }
 
     async updateVehicles() {
-        const statusArray = [{ path: "status", url: "https://api.mps.ford.com/api/vehicles/v4/$vin/status?lrdt=01-01-1970+00%3A00%3A00", desc: "Current status of the car" }];
+        const statusArray = [{ path: "status", url: "https://api.mps.ford.com/api/vehicles/v1/$vin/status", desc: "Current status of the car" }];
 
         const headers = {
             "content-type": "application/json",
