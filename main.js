@@ -264,7 +264,7 @@ class Ford extends utils.Adapter {
                 "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
                 "accept-language": "de-de",
             },
-            data: "refresh_token=" + this.session.refresh_token,
+            data: { refresh_token: this.session.refresh_token },
         })
             .then((res) => {
                 this.log.debug(JSON.stringify(res.data));
