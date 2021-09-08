@@ -189,7 +189,14 @@ class Ford extends utils.Adapter {
     }
 
     async updateVehicles() {
-        const statusArray = [{ path: "status", url: "https://api.mps.ford.com/api/vehicles/v1/$vin/status", desc: "Current status of the car" }];
+        const statusArray = [
+            { path: "status", url: "https://api.mps.ford.com/api/vehicles/v2/$vin/status", desc: "Current status of the car" },
+            { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status of the car" },
+            { path: "statusv1", url: "https://api.mps.ford.com/api/fordconnect/vehicles/v1/$vin/status", desc: "Current status of the car" },
+            { path: "statusv4", url: "https://api.mps.ford.com/api/vehicles/v4/$vin/status", desc: "Current status of the car" },
+            { path: "statususv4b", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status of the car" },
+            { path: "statususv4c", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status?lrdt=01-01-1970+00%3A00%3A00", desc: "Current status of the car" },
+        ];
 
         const headers = {
             "content-type": "application/json",
@@ -316,7 +323,7 @@ class Ford extends utils.Adapter {
                     "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
                 };
 
-                const url = "https://api.mps.ford.com//api/vehicles/v2/" + vin + "/" + command;
+                const url = "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/" + command;
 
                 await this.requestClient({
                     method: state.val ? "put" : "delete",
