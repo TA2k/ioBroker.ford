@@ -48,6 +48,7 @@ class Ford extends utils.Adapter {
         this.subscribeStates("*");
 
         await this.login();
+
         if (this.session.access_token) {
             await this.getVehicles();
             await this.updateVehicles();
@@ -184,6 +185,35 @@ class Ford extends utils.Adapter {
                         });
                     });
                     this.json2iob.parse(vehicle.VIN + ".general", vehicle);
+
+                    this.requestClient({
+                        method: "get",
+                        url: "https://usapi.cv.ford.com/api/users/vehicles/" + vehicle.VIN + "/detail?lrdt=01-01-1970%2000:00:00",
+                        headers: {
+                            "content-type": "application/json",
+                            "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+                            accept: "*/*",
+                            "auth-token": this.session.access_token,
+                            locale: "DE-DE",
+                            "accept-language": "de-de",
+                            countrycode: "DEU",
+                            "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+                        },
+                    })
+                        .then((res) => {
+                            this.log.debug(JSON.stringify(res.data));
+                            this.json2iob.parse(vehicle.VIN + ".details", res.data.vehicle);
+                        })
+                        .catch((error) => {
+                            this.log.error(error);
+                            error.response && this.log.error(JSON.stringify(error.response.data));
+                        });
+                }
+                for (const vehicle of res.data.vehicleProfile) {
+                    this.json2iob.parse(vehicle.VIN + ".general", vehicle);
+                }
+                for (const vehicle of res.data.vehicleCapabilities) {
+                    this.json2iob.parse(vehicle.VIN + ".capabilities", vehicle);
                 }
             })
             .catch((error) => {
@@ -196,6 +226,7 @@ class Ford extends utils.Adapter {
         const statusArray = [
             { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
             { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
+            { path: "fuelrec", url: "https://api.mps.ford.com/api/fuel-consumption-info/v1/reports/fuel?vin=$vin", desc: "Fuel Record of the car" },
         ];
 
         const headers = {
@@ -206,6 +237,7 @@ class Ford extends utils.Adapter {
             locale: "DE-DE",
             "accept-language": "de-de",
             countrycode: "DEU",
+            "country-code": "DEU",
             "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
         };
         this.vinArray.forEach((vin) => {
@@ -226,6 +258,9 @@ class Ford extends utils.Adapter {
                         const keys = Object.keys(res.data);
                         if (keys.length === 1) {
                             data = res.data[keys[0]];
+                        }
+                        if (element.path === "fuelrec") {
+                            data = res.data.value.fuelRecs;
                         }
                         const forceIndex = null;
                         const preferedArrayName = null;
