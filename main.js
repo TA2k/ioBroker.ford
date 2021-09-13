@@ -324,6 +324,7 @@ class Ford extends utils.Adapter {
      */
     onUnload(callback) {
         try {
+            this.setState("info.connection", false, true);
             clearTimeout(this.refreshTimeout);
             clearTimeout(this.reLoginTimeout);
             clearTimeout(this.refreshTokenTimeout);
@@ -375,6 +376,7 @@ class Ford extends utils.Adapter {
                             this.log.error(JSON.stringify(error.response.data));
                         }
                     });
+                clearTimeout(this.refreshTimeout);
                 this.refreshTimeout = setTimeout(async () => {
                     await this.updateVehicles();
                 }, 10 * 1000);
