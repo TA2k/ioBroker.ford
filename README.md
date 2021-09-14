@@ -17,7 +17,7 @@ Adapter for FordPass
 
 ## Changelog
 
-### 0.0.2
+### 0.0.5
 * (TA2k) initial release
 
 ## License
