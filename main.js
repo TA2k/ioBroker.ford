@@ -241,21 +241,23 @@ class Ford extends utils.Adapter {
             "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
         };
         this.vinArray.forEach(async (vin) => {
-            await this.requestClient({
-                method: "put",
-                url: "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/status",
-                headers: headers,
-            })
-                .then((res) => {
-                    this.log.debug(JSON.stringify(res.data));
-                    return res.data;
+            if (this.config.forceUpdate) {
+                await this.requestClient({
+                    method: "put",
+                    url: "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/status",
+                    headers: headers,
                 })
-                .catch((error) => {
-                    this.log.error(error);
-                    if (error.response) {
-                        this.log.error(JSON.stringify(error.response.data));
-                    }
-                });
+                    .then((res) => {
+                        this.log.debug(JSON.stringify(res.data));
+                        return res.data;
+                    })
+                    .catch((error) => {
+                        this.log.error(error);
+                        if (error.response) {
+                            this.log.error(JSON.stringify(error.response.data));
+                        }
+                    });
+            }
             statusArray.forEach(async (element) => {
                 const url = element.url.replace("$vin", vin);
 
