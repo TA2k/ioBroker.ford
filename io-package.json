@@ -1,9 +1,9 @@
 {
     "common": {
         "name": "ford",
-        "version": "0.0.6",
+        "version": "0.0.7",
         "news": {
-            "0.0.6": {
+            "0.0.7": {
                 "en": "initial release",
                 "de": "Erstveröffentlichung",
                 "ru": "Начальная версия",
@@ -62,6 +62,11 @@
         "connectionType": "cloud",
         "dataSource": "poll",
         "materialize": true,
+        "plugins": {
+            "sentry": {
+                "dsn": "https://c6109f629f7f4212ba9375a55670d6ce@sentry.iobroker.net/158"
+            }
+        },
         "dependencies": [
             {
                 "js-controller": ">=3.0.0"
