@@ -1,8 +1,11 @@
 {
     "common": {
         "name": "ford",
-        "version": "0.0.7",
+        "version": "0.0.8",
         "news": {
+            "0.0.8": {
+                "en": "add remote control for refresh"
+            },
             "0.0.7": {
                 "en": "initial release",
                 "de": "Erstveröffentlichung",

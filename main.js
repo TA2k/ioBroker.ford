@@ -170,6 +170,7 @@ class Ford extends utils.Adapter {
                         { command: "engine/start", name: "True = Start, False = Stop" },
                         { command: "doors/lock", name: "True = Lock, False = Unlock" },
                         { command: "status", name: "True = Request Status Update" },
+                        { command: "refresh", name: "True = Refresh Status" },
                     ];
                     remoteArray.forEach((remote) => {
                         this.setObjectNotExists(vehicle.VIN + ".remote." + remote.command, {
@@ -364,7 +365,10 @@ class Ford extends utils.Adapter {
                 const vin = id.split(".")[2];
 
                 const command = id.split(".")[4];
-
+                if (command === "refresh") {
+                    this.updateVehicles();
+                    return;
+                }
                 const headers = {
                     "content-type": "application/json",
                     "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
