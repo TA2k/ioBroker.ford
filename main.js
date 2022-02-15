@@ -25,6 +25,9 @@ class Ford extends utils.Adapter {
         this.on("ready", this.onReady.bind(this));
         this.on("stateChange", this.onStateChange.bind(this));
         this.on("unload", this.onUnload.bind(this));
+        this.vinArray = [];
+        this.session = {};
+        this.ignoredAPI = [];
     }
 
     /**
@@ -42,8 +45,6 @@ class Ford extends utils.Adapter {
         this.reLoginTimeout = null;
         this.refreshTokenTimeout = null;
         this.json2iob = new Json2iob(this);
-        this.vinArray = [];
-        this.session = {};
 
         this.subscribeStates("*");
 
@@ -261,7 +262,9 @@ class Ford extends utils.Adapter {
             }
             statusArray.forEach(async (element) => {
                 const url = element.url.replace("$vin", vin);
-
+                if (this.ignoredAPI.indexOf(element.path) !== -1) {
+                    return;
+                }
                 await this.requestClient({
                     method: "get",
                     url: url,
@@ -286,6 +289,11 @@ class Ford extends utils.Adapter {
                         this.json2iob.parse(vin + "." + element.path, data, { forceIndex: forceIndex, preferedArrayName: preferedArrayName, channelName: element.desc });
                     })
                     .catch((error) => {
+                        if (error.response && error.response.status === 401) {
+                            this.ignoredAPI.push(element.path);
+                            this.log.info("Ignored API: " + element.path);
+                            return;
+                        }
                         if (error.response && error.response.status === 401) {
                             error.response && this.log.debug(JSON.stringify(error.response.data));
                             this.log.info(element.path + " receive 401 error. Refresh Token in 30 seconds");
