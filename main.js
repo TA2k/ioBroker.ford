@@ -289,7 +289,7 @@ class Ford extends utils.Adapter {
                         this.json2iob.parse(vin + "." + element.path, data, { forceIndex: forceIndex, preferedArrayName: preferedArrayName, channelName: element.desc });
                     })
                     .catch((error) => {
-                        if (error.response && error.response.status === 401) {
+                        if (error.response && error.response.status === 404) {
                             this.ignoredAPI.push(element.path);
                             this.log.info("Ignored API: " + element.path);
                             return;
