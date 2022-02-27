@@ -143,6 +143,7 @@ class Ford extends utils.Adapter {
         })
             .then(async (res) => {
                 this.log.debug(JSON.stringify(res.data));
+                this.log.info(res.data.userVehicles.vehicleDetails.length + " vehicles found");
                 for (const vehicle of res.data.userVehicles.vehicleDetails) {
                     this.vinArray.push(vehicle.VIN);
                     await this.setObjectNotExistsAsync(vehicle.VIN, {
@@ -207,6 +208,7 @@ class Ford extends utils.Adapter {
                             this.json2iob.parse(vehicle.VIN + ".details", res.data.vehicle);
                         })
                         .catch((error) => {
+                            this.log.error("Failed to receive details");
                             this.log.error(error);
                             error.response && this.log.error(JSON.stringify(error.response.data));
                         });
@@ -219,6 +221,7 @@ class Ford extends utils.Adapter {
                 }
             })
             .catch((error) => {
+                this.log.error("failed to receive vehicles");
                 this.log.error(error);
                 error.response && this.log.error(JSON.stringify(error.response.data));
             });
@@ -254,6 +257,7 @@ class Ford extends utils.Adapter {
                         return res.data;
                     })
                     .catch((error) => {
+                        this.log.error("Failed to force update");
                         this.log.error(error);
                         if (error.response) {
                             this.log.error(JSON.stringify(error.response.data));
