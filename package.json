@@ -1,6 +1,6 @@
 {
     "name": "iobroker.ford",
-    "version": "0.0.9",
+    "version": "0.0.10",
     "description": "Adapter for FordPass",
     "author": {
         "name": "TA2k",

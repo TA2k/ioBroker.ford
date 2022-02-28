@@ -1,8 +1,11 @@
 {
     "common": {
         "name": "ford",
-        "version": "0.0.9",
+        "version": "0.0.10",
         "news": {
+            "0.0.10": {
+                "en": "status remote Problem behoben. Bei Warnungen Objektbaum löschen und Adapter neu starten"
+            },
             "0.0.8": {
                 "en": "add remote control for refresh"
             },
