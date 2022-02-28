@@ -396,9 +396,12 @@ class Ford extends utils.Adapter {
                 };
 
                 const url = "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/" + command;
-
+                let method = state.val ? "put" : "delete";
+                if (command === "status") {
+                    method = "put";
+                }
                 await this.requestClient({
-                    method: state.val ? "put" : "delete",
+                    method: method,
                     url: url,
                     headers: headers,
                 })
