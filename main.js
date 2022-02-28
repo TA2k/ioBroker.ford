@@ -204,6 +204,7 @@ class Ford extends utils.Adapter {
                         },
                     })
                         .then((res) => {
+                            this.log.info("Received details");
                             this.log.debug(JSON.stringify(res.data));
                             this.json2iob.parse(vehicle.VIN + ".details", res.data.vehicle);
                         })
@@ -265,6 +266,7 @@ class Ford extends utils.Adapter {
                     });
             }
             statusArray.forEach(async (element) => {
+                this.log.debug("Updating " + element.path + " for " + vin);
                 const url = element.url.replace("$vin", vin);
                 if (this.ignoredAPI.indexOf(element.path) !== -1) {
                     return;
@@ -293,6 +295,7 @@ class Ford extends utils.Adapter {
                         this.json2iob.parse(vin + "." + element.path, data, { forceIndex: forceIndex, preferedArrayName: preferedArrayName, channelName: element.desc });
                     })
                     .catch((error) => {
+                        this.log.debug("Failed to update " + element.path + " for " + vin);
                         if (error.response && error.response.status === 404) {
                             this.ignoredAPI.push(element.path);
                             this.log.info("Ignored API: " + element.path);
@@ -404,6 +407,7 @@ class Ford extends utils.Adapter {
                         return res.data;
                     })
                     .catch((error) => {
+                        this.log.error("Failed command: " + command);
                         this.log.error(error);
                         if (error.response) {
                             this.log.error(JSON.stringify(error.response.data));
