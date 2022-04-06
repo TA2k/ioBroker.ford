@@ -381,7 +381,7 @@ class Ford extends utils.Adapter {
                 const vin = id.split(".")[2];
 
                 const command = id.split(".")[4];
-                if (command === "refresh") {
+                if (command === "refresh" && state.val) {
                     this.updateVehicles();
                     return;
                 }
