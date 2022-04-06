@@ -248,6 +248,7 @@ class Ford extends utils.Adapter {
         };
         this.vinArray.forEach(async (vin) => {
             if (this.config.forceUpdate) {
+                this.log.debug("Force update of " + vin);
                 await this.requestClient({
                     method: "put",
                     url: "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/status",
