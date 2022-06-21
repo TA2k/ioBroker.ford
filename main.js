@@ -77,6 +77,7 @@ class Ford extends utils.Adapter {
         };
         const authCode = await this.requestClient({
             method: "post",
+
             url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
             headers: headers,
             data: qs.stringify(data),
@@ -96,17 +97,17 @@ class Ford extends utils.Adapter {
         }
 
         await this.requestClient({
-            method: "put",
-            url: "https://api.mps.ford.com/api/oauth2/v1/token",
+            method: "post",
+            url: "https://api.mps.ford.com/api/token/v2/cat-with-ci-access-token",
 
             headers: {
                 accept: "*/*",
                 "content-type": "application/json",
                 "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-                "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+                "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
                 "accept-language": "de-de",
             },
-            data: { code: authCode },
+            data: { ciToken: authCode },
         })
             .then((res) => {
                 this.log.debug(JSON.stringify(res.data));
@@ -323,14 +324,14 @@ class Ford extends utils.Adapter {
 
     async refreshToken() {
         await this.requestClient({
-            method: "put",
-            url: "https://api.mps.ford.com/api/oauth2/v1/refresh",
+            method: "post",
+            url: "https://api.mps.ford.com/api/token/v2/cat-with-refresh-token",
 
             headers: {
                 accept: "*/*",
                 "content-type": "application/json",
                 "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-                "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+                "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
                 "accept-language": "de-de",
             },
             data: { refresh_token: this.session.refresh_token },
