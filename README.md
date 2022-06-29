@@ -17,6 +17,8 @@ Adapter for FordPass
 
 ## Changelog
 
+### 0.0.12
+* fix login
 ### 0.0.11
 * fix login
 ### 0.0.8
