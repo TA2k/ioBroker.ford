@@ -71,7 +71,7 @@ class Ford extends utils.Adapter {
         }
     }
     async login() {
-        await this.requestClient({
+        const formUrl = await this.requestClient({
             method: "get",
             url: "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp://userauthorized&response_type=code&scope=openid&max_age=3600&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b&code_challenge=vlnpw-_VPsdi3hxmQFt46bPPTVFGMJkAOQklR2XCeHI%3D&code_challenge_method=S256",
             headers: {
@@ -82,6 +82,7 @@ class Ford extends utils.Adapter {
         })
             .then((res) => {
                 this.log.debug(res.data);
+                return res.data.split('data-ibm-login-url="')[1].split('"')[0];
             })
             .catch((error) => {
                 this.log.error(error);
@@ -89,9 +90,10 @@ class Ford extends utils.Adapter {
                     this.log.error(JSON.stringify(error.response.data));
                 }
             });
+
         const response = await this.requestClient({
             method: "post",
-            url: "https://sso.ci.ford.com/authsvc/mtfim/sps/authsvc?identity_source_id=75d08ad1-510f-468a-b69b-5ebc34f773e3&StateId=3655f990-af21-485b-a619-b84ac833a750",
+            url: "https://sso.ci.ford.com" + formUrl,
             headers: {
                 Host: "sso.ci.ford.com",
                 accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -99,8 +101,6 @@ class Ford extends utils.Adapter {
                 origin: "https://sso.ci.ford.com",
                 "accept-language": "de-de",
                 "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
-                referer:
-                    "https://sso.ci.ford.com/authsvc/mtfim/sps/authsvc?PolicyId=urn:ibm:security:authentication:asf:basicldapuser&identity_source_id=75d08ad1-510f-468a-b69b-5ebc34f773e3&Target=https%3A%2F%2Fsso.ci.ford.com%2Foidc%2Fendpoint%2Fdefault%2Fauthorize%3FqsId%3Dda760188-4676-4b12-ac45-84621ab9feb7%26client_id%3D9fb503e0-715b-47e8-adfd-ad4b7770f73b",
             },
             data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
         })
@@ -120,7 +120,7 @@ class Ford extends utils.Adapter {
             return;
         }
 
-        await this.requestClient({
+        const midToken = await this.requestClient({
             method: "post",
             url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
             headers: {
@@ -135,10 +135,34 @@ class Ford extends utils.Adapter {
             data: qs.stringify({
                 client_id: "9fb503e0-715b-47e8-adfd-ad4b7770f73b",
                 grant_type: "authorization_code",
-                code_verifier: "K__PRhrIHq2spULUen11sSkDj0W9jfkDiHjX8zeGozs%3D",
+                code_verifier: "K__PRhrIHq2spULUen11sSkDj0W9jfkDiHjX8zeGozs=",
                 code: response.code,
                 redirect_uri: "fordapp://userauthorized",
             }),
+        })
+            .then((res) => {
+                this.log.debug(JSON.stringify(res.data));
+
+                return res.data;
+            })
+            .catch((error) => {
+                this.log.error(error);
+                if (error.response) {
+                    this.log.error(JSON.stringify(error.response.data));
+                }
+            });
+        await this.requestClient({
+            method: "post",
+            url: "https://api.mps.ford.com/api/token/v2/cat-with-ci-access-token",
+
+            headers: {
+                accept: "*/*",
+                "content-type": "application/json",
+                "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+                "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
+                "accept-language": "de-de",
+            },
+            data: { ciToken: midToken.access_token },
         })
             .then((res) => {
                 this.log.debug(JSON.stringify(res.data));
