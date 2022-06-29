@@ -7,11 +7,11 @@
 // The adapter-core module gives you access to the core ioBroker functions
 // you need to create an adapter
 const utils = require("@iobroker/adapter-core");
-const axios = require("axios");
-const Json2iob = require("./lib/json2iob");
+const axios = require("axios").default;
 const qs = require("qs");
-// Load your modules here, e.g.:
-// const fs = require("fs");
+const Json2iob = require("./lib/json2iob");
+const tough = require("tough-cookie");
+const { HttpsCookieAgent } = require("http-cookie-agent/http");
 
 class Ford extends utils.Adapter {
     /**
@@ -28,6 +28,15 @@ class Ford extends utils.Adapter {
         this.vinArray = [];
         this.session = {};
         this.ignoredAPI = [];
+        this.cookieJar = new tough.CookieJar();
+        this.requestClient = axios.create({
+            withCredentials: true,
+            httpsAgent: new HttpsCookieAgent({
+                cookies: {
+                    jar: this.cookieJar,
+                },
+            }),
+        });
     }
 
     /**
@@ -40,7 +49,7 @@ class Ford extends utils.Adapter {
             this.log.info("Set interval to minimum 0.5");
             this.config.interval = 0.5;
         }
-        this.requestClient = axios.create();
+
         this.updateInterval = null;
         this.reLoginTimeout = null;
         this.refreshTokenTimeout = null;
@@ -62,29 +71,17 @@ class Ford extends utils.Adapter {
         }
     }
     async login() {
-        const headers = {
-            accept: "*/*",
-            "content-type": "application/x-www-form-urlencoded",
-            "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
-            "accept-language": "de-de",
-            authorization: "Basic ZWFpLWNsaWVudDo=",
-        };
-        const data = {
-            client_id: "9fb503e0-715b-47e8-adfd-ad4b7770f73b",
-            username: this.config.username,
-            password: this.config.password,
-            grant_type: "password",
-        };
-        const authCode = await this.requestClient({
-            method: "post",
-
-            url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
-            headers: headers,
-            data: qs.stringify(data),
+        await this.requestClient({
+            method: "get",
+            url: "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp://userauthorized&response_type=code&scope=openid&max_age=3600&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b&code_challenge=vlnpw-_VPsdi3hxmQFt46bPPTVFGMJkAOQklR2XCeHI%3D&code_challenge_method=S256",
+            headers: {
+                "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
+                accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "accept-language": "de-de",
+            },
         })
             .then((res) => {
-                this.log.debug(JSON.stringify(res.data));
-                return res.data.access_token;
+                this.log.debug(res.data);
             })
             .catch((error) => {
                 this.log.error(error);
@@ -92,22 +89,56 @@ class Ford extends utils.Adapter {
                     this.log.error(JSON.stringify(error.response.data));
                 }
             });
-        if (!authCode) {
+        const response = await this.requestClient({
+            method: "post",
+            url: "https://sso.ci.ford.com/authsvc/mtfim/sps/authsvc?identity_source_id=75d08ad1-510f-468a-b69b-5ebc34f773e3&StateId=3655f990-af21-485b-a619-b84ac833a750",
+            headers: {
+                Host: "sso.ci.ford.com",
+                accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "content-type": "application/x-www-form-urlencoded",
+                origin: "https://sso.ci.ford.com",
+                "accept-language": "de-de",
+                "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
+                referer:
+                    "https://sso.ci.ford.com/authsvc/mtfim/sps/authsvc?PolicyId=urn:ibm:security:authentication:asf:basicldapuser&identity_source_id=75d08ad1-510f-468a-b69b-5ebc34f773e3&Target=https%3A%2F%2Fsso.ci.ford.com%2Foidc%2Fendpoint%2Fdefault%2Fauthorize%3FqsId%3Dda760188-4676-4b12-ac45-84621ab9feb7%26client_id%3D9fb503e0-715b-47e8-adfd-ad4b7770f73b",
+            },
+            data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
+        })
+            .then((res) => {
+                this.log.error(JSON.stringify(res.data));
+                return;
+            })
+            .catch((error) => {
+                if (error && error.message.includes("Unsupported protocol")) {
+                    return qs.parse(error.request._options.path.split("?")[1]);
+                }
+                this.log.error(error);
+                error.response && this.log.error(JSON.stringify(error.response.data));
+                return;
+            });
+        if (!response) {
             return;
         }
 
         await this.requestClient({
             method: "post",
-            url: "https://api.mps.ford.com/api/token/v2/cat-with-ci-access-token",
-
+            url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
             headers: {
-                accept: "*/*",
-                "content-type": "application/json",
-                "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-                "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
+                Host: "sso.ci.ford.com",
+
+                accept: "application/json",
+                "content-type": "application/x-www-form-urlencoded",
+                "user-agent": "FordPass/4 CFNetwork/1240.0.4 Darwin/20.6.0",
+                "x-dynatrace": "MT_3_27_16346669642607_2-0_997d5837-2d14-4fbb-a338-5c70d678d40e_33_1_311",
                 "accept-language": "de-de",
             },
-            data: { ciToken: authCode },
+            data: qs.stringify({
+                client_id: "9fb503e0-715b-47e8-adfd-ad4b7770f73b",
+                grant_type: "authorization_code",
+                code_verifier: "K__PRhrIHq2spULUen11sSkDj0W9jfkDiHjX8zeGozs%3D",
+                code: response.code,
+                redirect_uri: "fordapp://userauthorized",
+            }),
         })
             .then((res) => {
                 this.log.debug(JSON.stringify(res.data));
