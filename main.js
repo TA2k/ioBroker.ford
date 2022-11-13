@@ -76,7 +76,7 @@ class Ford extends utils.Adapter {
       url: "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp://userauthorized&response_type=code&scope=openid&max_age=3600&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b&code_challenge=vlnpw-_VPsdi3hxmQFt46bPPTVFGMJkAOQklR2XCeHI%3D&code_challenge_method=S256",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1",
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "accept-language": "de-de",
       },
@@ -102,7 +102,7 @@ class Ford extends utils.Adapter {
         origin: "https://sso.ci.ford.com",
         "accept-language": "de-de",
         "user-agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1",
       },
       data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
     })
@@ -130,8 +130,7 @@ class Ford extends utils.Adapter {
 
         accept: "application/json",
         "content-type": "application/x-www-form-urlencoded",
-        "user-agent": "FordPass/4 CFNetwork/1240.0.4 Darwin/20.6.0",
-        "x-dynatrace": "MT_3_27_16346669642607_2-0_997d5837-2d14-4fbb-a338-5c70d678d40e_33_1_311",
+        "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
         "accept-language": "de-de",
       },
       data: qs.stringify({
@@ -161,7 +160,7 @@ class Ford extends utils.Adapter {
         accept: "*/*",
         "content-type": "application/json",
         "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-        "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
+        "user-agent": "FordPass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
         "accept-language": "de-de",
       },
       data: { ciToken: midToken.access_token },
@@ -189,7 +188,7 @@ class Ford extends utils.Adapter {
       locale: "DE-DE",
       "accept-language": "de-de",
       countrycode: "DEU",
-      "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+      "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
     };
     await this.requestClient({
       method: "post",
@@ -258,7 +257,7 @@ class Ford extends utils.Adapter {
           //         locale: "DE-DE",
           //         "accept-language": "de-de",
           //         countrycode: "DEU",
-          //         "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+          //         "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
           //     },
           // })
           //     .then((res) => {
@@ -302,7 +301,7 @@ class Ford extends utils.Adapter {
       "accept-language": "de-de",
       countrycode: "DEU",
       "country-code": "DEU",
-      "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+      "user-agent": "FordPass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
@@ -392,7 +391,7 @@ class Ford extends utils.Adapter {
         accept: "*/*",
         "content-type": "application/json",
         "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-        "user-agent": "FordPass/8 CFNetwork/1240.0.4 Darwin/20.6.0",
+        "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
         "accept-language": "de-de",
       },
       data: { refresh_token: this.session.refresh_token },
@@ -455,7 +454,7 @@ class Ford extends utils.Adapter {
           locale: "DE-DE",
           "accept-language": "de-de",
           countrycode: "DEU",
-          "user-agent": "FordPass/5 CFNetwork/1240.0.4 Darwin/20.6.0",
+          "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
         };
 
         const url = "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/" + command;
