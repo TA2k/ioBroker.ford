@@ -487,7 +487,7 @@ class Ford extends utils.Adapter {
         // const resultDict = { chargingStatus: "CHARGE_NOW", doorLockState: "DOOR_LOCK" };
         // const idArray = id.split(".");
         // const stateName = idArray[idArray.length - 1];
-        const vin = id.split(".")[2];
+        // const vin = id.split(".")[2];
         // if (resultDict[stateName]) {
         //     let value = true;
         //     if (!state.val || state.val === "INVALID" || state.val === "NOT_CHARGING" || state.val === "ERROR" || state.val === "UNLOCKED") {
