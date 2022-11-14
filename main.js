@@ -107,6 +107,17 @@ class Ford extends utils.Adapter {
       data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
     })
       .then((res) => {
+        if (res.data.includes("data-ibm-login-error-text")) {
+          this.log.error("Login failed");
+          this.log.error(res.data.split('data-ibm-login-error-text="')[1].split('"')[0]);
+          if (res.data.includes("CSIAH0320E")) {
+            this.log.error(
+              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account"
+            );
+          }
+          return;
+        }
+
         this.log.error(JSON.stringify(res.data));
         return;
       })
@@ -114,6 +125,7 @@ class Ford extends utils.Adapter {
         if (error && error.message.includes("Unsupported protocol")) {
           return qs.parse(error.request._options.path.split("?")[1]);
         }
+
         this.log.error(error);
         error.response && this.log.error(JSON.stringify(error.response.data));
         return;
