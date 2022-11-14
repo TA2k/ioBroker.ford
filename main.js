@@ -12,7 +12,8 @@ const qs = require("qs");
 const Json2iob = require("./lib/json2iob");
 const tough = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
-
+const crypto = require("crypto");
+const { v4: uuidv4 } = require("uuid");
 class Ford extends utils.Adapter {
   /**
    * @param {Partial<utils.AdapterOptions>} [options={}]
@@ -28,6 +29,7 @@ class Ford extends utils.Adapter {
     this.vinArray = [];
     this.session = {};
     this.ignoredAPI = [];
+    this.dyna = "MT_3_30_2352378557_3-0_" + uuidv4() + "_0_789_87";
     this.cookieJar = new tough.CookieJar();
     this.requestClient = axios.create({
       withCredentials: true,
@@ -71,14 +73,20 @@ class Ford extends utils.Adapter {
     }
   }
   async login() {
+    let [code_verifier, codeChallenge] = this.getCodeChallenge();
     const formUrl = await this.requestClient({
       method: "get",
-      url: "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp://userauthorized&response_type=code&scope=openid&max_age=3600&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b&code_challenge=vlnpw-_VPsdi3hxmQFt46bPPTVFGMJkAOQklR2XCeHI%3D&code_challenge_method=S256",
+      url:
+        "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=" +
+        codeChallenge +
+        "&code_challenge_method=S256&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "accept-language": "de-de",
+          "Mozilla/5.0 (Linux; Android 12; SM-S906U Build/SP1A.210812.016; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.54 Mobile Safari/537.36",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+        "x-requested-with": "com.ford.fordpasseu",
       },
     })
       .then((res) => {
@@ -102,7 +110,11 @@ class Ford extends utils.Adapter {
         origin: "https://sso.ci.ford.com",
         "accept-language": "de-de",
         "user-agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 15_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Mobile/15E148 Safari/604.1",
+          "Mozilla/5.0 (Linux; Android 12; SM-S906U Build/SP1A.210812.016; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.54 Mobile Safari/537.36",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+        "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+        "x-requested-with": "com.ford.fordpasseu",
       },
       data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
     })
@@ -112,7 +124,7 @@ class Ford extends utils.Adapter {
           this.log.error(res.data.split('data-ibm-login-error-text="')[1].split('"')[0]);
           if (res.data.includes("CSIAH0320E")) {
             this.log.error(
-              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account"
+              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account. E.g. yourmail+ford1@gmail.com"
             );
           }
           return;
@@ -139,18 +151,18 @@ class Ford extends utils.Adapter {
       url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
       headers: {
         Host: "sso.ci.ford.com",
-
-        accept: "application/json",
+        "x-dynatrace": this.dyna,
         "content-type": "application/x-www-form-urlencoded",
-        "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
-        "accept-language": "de-de",
+        "user-agent": "okhttp/4.9.2",
       },
       data: qs.stringify({
         client_id: "9fb503e0-715b-47e8-adfd-ad4b7770f73b",
         grant_type: "authorization_code",
-        code_verifier: "K__PRhrIHq2spULUen11sSkDj0W9jfkDiHjX8zeGozs=",
+        code_verifier: code_verifier,
         code: response.code,
         redirect_uri: "fordapp://userauthorized",
+        scope: "openid",
+        resource: "",
       }),
     })
       .then((res) => {
@@ -171,8 +183,8 @@ class Ford extends utils.Adapter {
       headers: {
         accept: "*/*",
         "content-type": "application/json",
-        "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-        "user-agent": "FordPass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+        "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+        "user-agent": "okhttp/4.9.2",
         "accept-language": "de-de",
       },
       data: { ciToken: midToken.access_token },
@@ -194,13 +206,14 @@ class Ford extends utils.Adapter {
   async getVehicles() {
     const headers = {
       "content-type": "application/json",
-      "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+      "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
       accept: "*/*",
+      "x-dynatrace": this.dyna,
       "auth-token": this.session.access_token,
       locale: "DE-DE",
       "accept-language": "de-de",
       countrycode: "DEU",
-      "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+      "user-agent": "okhttp/4.9.2",
     };
     await this.requestClient({
       method: "post",
@@ -263,13 +276,13 @@ class Ford extends utils.Adapter {
           //     url: "https://usapi.cv.ford.com/api/users/vehicles/" + vehicle.VIN + "/detail?lrdt=01-01-1970%2000:00:00",
           //     headers: {
           //         "content-type": "application/json",
-          //         "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+          //         "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
           //         accept: "*/*",
           //         "auth-token": this.session.access_token,
           //         locale: "DE-DE",
           //         "accept-language": "de-de",
           //         countrycode: "DEU",
-          //         "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+          //         "user-agent":"okhttp/4.9.2",
           //     },
           // })
           //     .then((res) => {
@@ -306,14 +319,15 @@ class Ford extends utils.Adapter {
 
     const headers = {
       "content-type": "application/json",
-      "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+      "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
       accept: "*/*",
+      "x-dynatrace": this.dyna,
       "auth-token": this.session.access_token,
       locale: "DE-DE",
       "accept-language": "de-de",
       countrycode: "DEU",
       "country-code": "DEU",
-      "user-agent": "FordPass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+      "user-agent": "okhttp/4.9.2",
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
@@ -402,8 +416,8 @@ class Ford extends utils.Adapter {
       headers: {
         accept: "*/*",
         "content-type": "application/json",
-        "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
-        "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+        "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+        "user-agent": "okhttp/4.9.2",
         "accept-language": "de-de",
       },
       data: { refresh_token: this.session.refresh_token },
@@ -425,6 +439,17 @@ class Ford extends utils.Adapter {
       });
   }
 
+  getCodeChallenge() {
+    let hash = "";
+    let result = "";
+    const chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-";
+    result = "";
+    for (let i = 171; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
+    hash = crypto.createHash("sha256").update(result).digest("base64");
+    hash = hash.replace(/\+/g, "-").replace(/\//g, "_").replace(/==/g, "=");
+
+    return [result, hash];
+  }
   /**
    * Is called when adapter shuts down - callback has to be called under any circumstances!
    * @param {() => void} callback
@@ -460,13 +485,13 @@ class Ford extends utils.Adapter {
         }
         const headers = {
           "content-type": "application/json",
-          "application-id": "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19",
+          "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
           accept: "*/*",
           "auth-token": this.session.access_token,
           locale: "DE-DE",
           "accept-language": "de-de",
           countrycode: "DEU",
-          "user-agent": "Fordpass/10 CFNetwork/1240.0.4 Darwin/21.6.0",
+          "user-agent": "okhttp/4.9.2",
         };
 
         const url = "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/" + command;
