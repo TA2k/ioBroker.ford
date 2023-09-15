@@ -29,6 +29,7 @@ class Ford extends utils.Adapter {
     this.vinArray = [];
     this.session = {};
     this.ignoredAPI = [];
+    this.appId = "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19";
     this.dyna = "MT_3_30_2352378557_3-0_" + uuidv4() + "_0_789_87";
     this.cookieJar = new tough.CookieJar();
     this.requestClient = axios.create({
@@ -124,7 +125,7 @@ class Ford extends utils.Adapter {
           this.log.error(res.data.split('data-ibm-login-error-text="')[1].split('"')[0]);
           if (res.data.includes("CSIAH0320E")) {
             this.log.error(
-              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account. E.g. yourmail+ford1@gmail.com"
+              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account. E.g. yourmail+ford1@gmail.com",
             );
           }
           return;
@@ -183,7 +184,7 @@ class Ford extends utils.Adapter {
       headers: {
         accept: "*/*",
         "content-type": "application/json",
-        "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+        "application-id": this.appId,
         "user-agent": "okhttp/4.9.2",
         "accept-language": "de-de",
       },
@@ -206,7 +207,7 @@ class Ford extends utils.Adapter {
   async getVehicles() {
     const headers = {
       "content-type": "application/json",
-      "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+      "application-id": this.appId,
       accept: "*/*",
       "x-dynatrace": this.dyna,
       "auth-token": this.session.access_token,
@@ -276,7 +277,7 @@ class Ford extends utils.Adapter {
           //     url: "https://usapi.cv.ford.com/api/users/vehicles/" + vehicle.VIN + "/detail?lrdt=01-01-1970%2000:00:00",
           //     headers: {
           //         "content-type": "application/json",
-          //         "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+          //         "application-id": this.appId,
           //         accept: "*/*",
           //         "auth-token": this.session.access_token,
           //         locale: "DE-DE",
@@ -314,12 +315,17 @@ class Ford extends utils.Adapter {
     const statusArray = [
       { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
       { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
-      { path: "fuelrec", url: "https://api.mps.ford.com/api/fuel-consumption-info/v1/reports/fuel?vin=$vin", desc: "Fuel Record of the car" },
+      { path: "statususv5", url: "https://usapi.cv.ford.com/api/vehicles/v5/$vin/status", desc: "Current status v5 of the car" },
+      {
+        path: "fuelrec",
+        url: "https://api.mps.ford.com/api/fuel-consumption-info/v1/reports/fuel?vin=$vin",
+        desc: "Fuel Record of the car",
+      },
     ];
 
     const headers = {
       "content-type": "application/json",
-      "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+      "application-id": this.appId,
       accept: "*/*",
       "x-dynatrace": this.dyna,
       "auth-token": this.session.access_token,
@@ -416,7 +422,7 @@ class Ford extends utils.Adapter {
       headers: {
         accept: "*/*",
         "content-type": "application/json",
-        "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+        "application-id": this.appId,
         "user-agent": "okhttp/4.9.2",
         "accept-language": "de-de",
       },
@@ -485,7 +491,7 @@ class Ford extends utils.Adapter {
         }
         const headers = {
           "content-type": "application/json",
-          "application-id": "667D773E-1BDC-4139-8AD0-2B16474E8DC7",
+          "application-id": this.appId,
           accept: "*/*",
           "auth-token": this.session.access_token,
           locale: "DE-DE",
