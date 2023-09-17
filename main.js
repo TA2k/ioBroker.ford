@@ -9,7 +9,7 @@
 const utils = require("@iobroker/adapter-core");
 const axios = require("axios").default;
 const qs = require("qs");
-const Json2iob = require("./lib/json2iob");
+const Json2iob = require("json2iob");
 const tough = require("tough-cookie");
 const { HttpsCookieAgent } = require("http-cookie-agent/http");
 const crypto = require("crypto");
@@ -29,7 +29,7 @@ class Ford extends utils.Adapter {
     this.vinArray = [];
     this.session = {};
     this.ignoredAPI = [];
-    this.appId = "1E8C7794-FF5F-49BC-9596-A1E0C86C5B19";
+    this.appId = "667D773E-1BDC-4139-8AD0-2B16474E8DC7";
     this.dyna = "MT_3_30_2352378557_3-0_" + uuidv4() + "_0_789_87";
     this.cookieJar = new tough.CookieJar();
     this.requestClient = axios.create({
@@ -40,6 +40,11 @@ class Ford extends utils.Adapter {
         },
       }),
     });
+
+    this.updateInterval = null;
+    this.reLoginTimeout = null;
+    this.refreshTokenTimeout = null;
+    this.json2iob = new Json2iob(this);
   }
 
   /**
@@ -52,11 +57,6 @@ class Ford extends utils.Adapter {
       this.log.info("Set interval to minimum 0.5");
       this.config.interval = 0.5;
     }
-
-    this.updateInterval = null;
-    this.reLoginTimeout = null;
-    this.refreshTokenTimeout = null;
-    this.json2iob = new Json2iob(this);
 
     this.subscribeStates("*");
 
@@ -313,13 +313,18 @@ class Ford extends utils.Adapter {
 
   async updateVehicles() {
     const statusArray = [
-      { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
-      { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
-      { path: "statususv5", url: "https://usapi.cv.ford.com/api/vehicles/v5/$vin/status", desc: "Current status v5 of the car" },
+      // { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
+      // { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
+      // { path: "statususv5", url: "https://usapi.cv.ford.com/api/vehicles/v5/$vin/status", desc: "Current status v5 of the car" },
+      // {
+      //   path: "fuelrec",
+      //   url: "https://api.mps.ford.com/api/fuel-consumption-info/v1/reports/fuel?vin=$vin",
+      //   desc: "Fuel Record of the car",
+      // },
       {
-        path: "fuelrec",
-        url: "https://api.mps.ford.com/api/fuel-consumption-info/v1/reports/fuel?vin=$vin",
-        desc: "Fuel Record of the car",
+        path: "statusQuery",
+        url: "https://api.autonomic.ai/v1beta/telemetry/sources/fordpass/vehicles/$vin:query",
+        desc: "Current status via query of the car. Check your 12V battery regularly.",
       },
     ];
 
@@ -328,12 +333,8 @@ class Ford extends utils.Adapter {
       "application-id": this.appId,
       accept: "*/*",
       "x-dynatrace": this.dyna,
-      "auth-token": this.session.access_token,
-      locale: "DE-DE",
-      "accept-language": "de-de",
-      countrycode: "DEU",
-      "country-code": "DEU",
-      "user-agent": "okhttp/4.9.2",
+      authorization: "Bearer " + this.session.access_token,
+      "user-agent": "okhttp/4.10.0",
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
@@ -362,9 +363,10 @@ class Ford extends utils.Adapter {
           return;
         }
         await this.requestClient({
-          method: "get",
+          method: "post",
           url: url,
           headers: headers,
+          data: "{}",
         })
           .then((res) => {
             this.log.debug(JSON.stringify(res.data));
@@ -398,7 +400,7 @@ class Ford extends utils.Adapter {
             if (error.response && error.response.status === 401) {
               error.response && this.log.debug(JSON.stringify(error.response.data));
               this.log.info(element.path + " receive 401 error. Refresh Token in 30 seconds");
-              clearTimeout(this.refreshTokenTimeout);
+              this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
               this.refreshTokenTimeout = setTimeout(() => {
                 this.refreshToken();
               }, 1000 * 30);
