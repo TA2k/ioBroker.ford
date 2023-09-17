@@ -1,8 +1,11 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.0.14",
+    "version": "0.1.0",
     "news": {
+      "0.1.0": {
+        "en": "Move to new status fetching. Add 12V check."
+      },
       "0.0.14": {
         "en": "Improvements to prevent blocking from Ford"
       },
