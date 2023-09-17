@@ -312,6 +312,7 @@ class Ford extends utils.Adapter {
   }
 
   async updateVehicles() {
+    await this.getAutonomToken();
     const statusArray = [
       // { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
       // { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
@@ -333,16 +334,22 @@ class Ford extends utils.Adapter {
       "application-id": this.appId,
       accept: "*/*",
       "x-dynatrace": this.dyna,
-      authorization: "Bearer " + this.session.access_token,
+      authorization: "Bearer " + this.autonom.access_token,
       "user-agent": "okhttp/4.10.0",
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
         this.log.debug("Force update of " + vin);
         await this.requestClient({
-          method: "put",
-          url: "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/status",
+          method: "post",
+          url: "https://api.autonomic.ai/v1/command/vehicles/" + vin + "/commands",
           headers: headers,
+          data: {
+            properties: {},
+            tags: {},
+            type: "statusRefresh",
+            wakeUp: true,
+          },
         })
           .then((res) => {
             this.log.debug(JSON.stringify(res.data));
@@ -368,7 +375,7 @@ class Ford extends utils.Adapter {
           headers: headers,
           data: "{}",
         })
-          .then((res) => {
+          .then(async (res) => {
             this.log.debug(JSON.stringify(res.data));
             if (!res.data) {
               return;
@@ -384,11 +391,17 @@ class Ford extends utils.Adapter {
             const forceIndex = null;
             const preferedArrayName = null;
 
-            this.json2iob.parse(vin + "." + element.path, data, {
-              forceIndex: forceIndex,
+            await this.json2iob.parse(vin + "." + element.path, data, {
+              forceIndex: true,
               preferedArrayName: preferedArrayName,
+              autoCast: true,
               channelName: element.desc,
             });
+            if (data.metrics && data.metrics.batteryVoltage && data.metrics.batteryVoltage.value < 12.2) {
+              this.log.error("12V battery is:" + data.metrics.batteryVoltage.value + "V");
+              this.log.error("12V battery voltage is under 12.2V Please check your car. Stoping Adapter");
+              this.stop();
+            }
           })
           .catch((error) => {
             this.log.debug("Failed to update " + element.path + " for " + vin);
@@ -414,6 +427,35 @@ class Ford extends utils.Adapter {
           });
       });
     });
+  }
+
+  async getAutonomToken() {
+    await this.requestClient({
+      method: "post",
+      url: "https://accounts.autonomic.ai/v1/auth/oidc/token",
+      headers: {
+        accept: "*/*",
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      data: {
+        subject_token: this.session.access_token,
+        subject_issuer: "fordpass",
+        client_id: "fordpass-prod",
+        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+        subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
+      },
+    })
+      .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
+        this.autonom = res.data;
+        return res.data;
+      })
+      .catch((error) => {
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
   }
 
   async refreshToken() {
@@ -491,24 +533,28 @@ class Ford extends utils.Adapter {
           this.updateVehicles();
           return;
         }
+
+        await this.getAutonomToken();
         const headers = {
           "content-type": "application/json",
           "application-id": this.appId,
           accept: "*/*",
-          "auth-token": this.session.access_token,
-          locale: "DE-DE",
-          "accept-language": "de-de",
-          countrycode: "DEU",
-          "user-agent": "okhttp/4.9.2",
+          "x-dynatrace": this.dyna,
+          authorization: "Bearer " + this.autonom.access_token,
+          "user-agent": "okhttp/4.10.0",
         };
-
-        const url = "https://usapi.cv.ford.com/api/vehicles/v2/" + vin + "/" + command;
-        let method = state.val ? "put" : "delete";
+        const url = "https://api.autonomic.ai/v1/command/vehicles/" + vin + "/commands";
+        let data = {};
         if (command === "status") {
-          method = "put";
+          data = {
+            properties: {},
+            tags: {},
+            type: "statusRefresh",
+            wakeUp: true,
+          };
         }
         await this.requestClient({
-          method: method,
+          method: "post",
           url: url,
           headers: headers,
         })
