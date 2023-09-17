@@ -544,14 +544,20 @@ class Ford extends utils.Adapter {
           "user-agent": "okhttp/4.10.0",
         };
         const url = "https://api.autonomic.ai/v1/command/vehicles/" + vin + "/commands";
-        let data = {};
+        const data = {
+          properties: {},
+          tags: {},
+          type: "",
+          wakeUp: true,
+        };
         if (command === "status") {
-          data = {
-            properties: {},
-            tags: {},
-            type: "statusRefresh",
-            wakeUp: true,
-          };
+          data.type = "statusRefresh";
+        }
+        if (command === "engine/start") {
+          data.type = state.val ? "remoteStart" : "cancelRemoteStart";
+        }
+        if (command === "doors/lock") {
+          data.type = state.val ? "lock" : "unlock";
         }
         await this.requestClient({
           method: "post",
