@@ -64,6 +64,7 @@ class Ford extends utils.Adapter {
 
     if (this.session.access_token) {
       await this.getVehicles();
+      await this.cleanObjects();
       await this.updateVehicles();
       this.updateInterval = setInterval(async () => {
         await this.updateVehicles();
@@ -487,6 +488,18 @@ class Ford extends utils.Adapter {
           this.login();
         }, 1000 * 60 * 1);
       });
+  }
+  async cleanObjects() {
+    for (const vin of this.vinArray) {
+      const remoteState = await this.getObjectAsync(vin + ".statusv2");
+
+      if (remoteState) {
+        this.log.debug("clean old states" + vin);
+        await this.delObjectAsync(vin + ".statusv2", { recursive: true });
+        await this.delObjectAsync(vin + ".statususv4", { recursive: true });
+        await this.delObjectAsync(vin + ".statususv5", { recursive: true });
+      }
+    }
   }
 
   getCodeChallenge() {
