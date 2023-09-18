@@ -91,7 +91,7 @@ class Ford extends utils.Adapter {
       },
     })
       .then((res) => {
-        this.log.debug(res.data);
+        // this.log.debug(res.data)
         return res.data.split('data-ibm-login-url="')[1].split('"')[0];
       })
       .catch((error) => {
