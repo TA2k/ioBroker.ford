@@ -576,6 +576,7 @@ class Ford extends utils.Adapter {
           method: "post",
           url: url,
           headers: headers,
+          data: data,
         })
           .then((res) => {
             this.log.debug(JSON.stringify(res.data));

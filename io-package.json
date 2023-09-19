@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "news": {
-      "0.1.2": {
+      "0.1.3": {
         "en": "Move to new status fetching. Add 12V check."
       },
       "0.0.14": {
