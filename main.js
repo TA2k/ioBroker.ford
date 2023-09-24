@@ -45,6 +45,7 @@ class Ford extends utils.Adapter {
     this.reLoginTimeout = null;
     this.refreshTokenTimeout = null;
     this.json2iob = new Json2iob(this);
+    this.last12V = 12.2;
   }
 
   /**
@@ -398,10 +399,14 @@ class Ford extends utils.Adapter {
               autoCast: true,
               channelName: element.desc,
             });
-            if (data.metrics && data.metrics.batteryVoltage && data.metrics.batteryVoltage.value < 12.2) {
-              this.log.error("12V battery is:" + data.metrics.batteryVoltage.value + "V");
-              this.log.error("12V battery voltage is under 12.2V Please check your car. Stoping Adapter");
-              this.stop();
+            if (data.metrics && data.metrics.batteryVoltage) {
+              const current12V = data.metrics.batteryVoltage.value;
+              if (current12V < 12.1 && this.last12V < 12.1) {
+                this.log.error("12V battery is:" + current12V + "V and before was " + this.last12V + "V");
+                this.log.error("12V battery voltage is under 12.1V Please check your car before restarting Adapter. Adapter is stopped.");
+                this.stop();
+              }
+              this.last12V = current12V;
             }
           })
           .catch((error) => {
