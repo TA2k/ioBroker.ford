@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "news": {
+      "0.1.5": {
+        "en": "Change 12V Check. Will only stops force Updates",
+        "de": "Änderung der 12V-Überprüfung. Stoppt nur erzwungene Updates"
+      },
       "0.1.4": {
         "en": "Improve 12V check. Move to 12.1V as new limit",
         "de": "Verbesserung der 12V-Überprüfung. 12.1V als neue Grenze"
@@ -104,7 +108,8 @@
     "username": "",
     "password": "",
     "interval": 5,
-    "forceUpdate": true
+    "forceUpdate": true,
+    "skip12VCheck": false
   },
   "objects": [],
   "instanceObjects": [

@@ -341,6 +341,10 @@ class Ford extends utils.Adapter {
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
+        if (this.last12V < 12.1 && !this.config.skip12VCheck) {
+          this.log.warn("12V battery is under 12.1V: " + this.last12V + "V - Skip force update from car");
+          return;
+        }
         this.log.debug("Force update of " + vin);
         await this.requestClient({
           method: "post",
@@ -401,10 +405,8 @@ class Ford extends utils.Adapter {
             });
             if (data.metrics && data.metrics.batteryVoltage) {
               const current12V = data.metrics.batteryVoltage.value;
-              if (current12V < 12.1 && this.last12V < 12.1) {
-                this.log.error("12V battery is:" + current12V + "V and before was " + this.last12V + "V");
-                this.log.error("12V battery voltage is under 12.1V Please check your car before restarting Adapter. Adapter is stopped.");
-                this.stop();
+              if (current12V < 12.1) {
+                this.log.warn("12V battery is under 12.1V: " + current12V + "V");
               }
               this.last12V = current12V;
             }
