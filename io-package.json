@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "news": {
+      "0.1.4": {
+        "en": "Improve 12V check. Move to 12.1V as new limit",
+        "de": "Verbesserung der 12V-Überprüfung. 12.1V als neue Grenze"
+      },
       "0.1.3": {
         "en": "Move to new status fetching. Add 12V check."
       },
