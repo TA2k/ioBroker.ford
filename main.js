@@ -555,6 +555,10 @@ class Ford extends utils.Adapter {
         }
 
         await this.getAutonomToken();
+        if (!this.autonom) {
+          this.log.error("Failed to get autonom token");
+          return;
+        }
         const headers = {
           "content-type": "application/json",
           "application-id": this.appId,
