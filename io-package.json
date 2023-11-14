@@ -1,8 +1,12 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.1.5",
+    "version": "0.2.0",
     "news": {
+      "0.2.0": {
+        "en": "Fix Login",
+        "de": "Login Fix"
+      },
       "0.1.5": {
         "en": "Change 12V Check. Will only stops force Updates",
         "de": "Änderung der 12V-Überprüfung. Stoppt nur erzwungene Updates"
