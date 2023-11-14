@@ -77,24 +77,22 @@ class Ford extends utils.Adapter {
   }
   async login() {
     let [code_verifier, codeChallenge] = this.getCodeChallenge();
-    const formUrl = await this.requestClient({
+    const loginForm = await this.requestClient({
       method: "get",
-      url:
-        "https://sso.ci.ford.com/v1.0/endpoint/default/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=" +
-        codeChallenge +
-        "&code_challenge_method=S256&client_id=9fb503e0-715b-47e8-adfd-ad4b7770f73b",
+      maxBodyLength: Infinity,
+      url: "https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=Jj_XmHuW1023dDe1d_E__hKcnAKWQccxmXFplxru798&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (Linux; Android 12; SM-S906U Build/SP1A.210812.016; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.54 Mobile Safari/537.36",
+          "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36",
         accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-        "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "x-requested-with": "com.ford.fordpasseu",
+
+        "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
       },
     })
       .then((res) => {
-        // this.log.debug(res.data)
-        return res.data.split('data-ibm-login-url="')[1].split('"')[0];
+        return JSON.parse(res.data.split("SETTINGS = ")[1].split(";")[0]);
       })
       .catch((error) => {
         this.log.error(error);
@@ -103,38 +101,27 @@ class Ford extends utils.Adapter {
         }
       });
 
-    const response = await this.requestClient({
+    await this.requestClient({
       method: "post",
-      url: "https://sso.ci.ford.com" + formUrl,
+      maxBodyLength: Infinity,
+      url:
+        "https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=StateProperties=" +
+        loginForm.transId +
+        "&p=B2C_1A_SignInSignUp_de-DE",
       headers: {
-        Host: "sso.ci.ford.com",
-        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "content-type": "application/x-www-form-urlencoded",
-        origin: "https://sso.ci.ford.com",
-        "accept-language": "de-de",
+        "x-csrf-token": loginForm.csrf,
         "user-agent":
-          "Mozilla/5.0 (Linux; Android 12; SM-S906U Build/SP1A.210812.016; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/107.0.5304.54 Mobile Safari/537.36",
-        accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
+          "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36",
+        "content-type": "application/x-www-form-urlencoded; charset=UTF-8",
+        accept: "application/json, text/javascript, */*; q=0.01",
+        "x-requested-with": "XMLHttpRequest",
+        origin: "https://login.ford.com",
         "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
-        "x-requested-with": "com.ford.fordpasseu",
       },
-      data: qs.stringify({ operation: "verify", "login-form-type": "pwd", username: this.config.username, password: this.config.password }),
+      data: { request_type: "RESPONSE", signInName: this.config.username, password: this.config.password },
     })
       .then((res) => {
-        if (res.data.includes("data-ibm-login-error-text")) {
-          this.log.error("Login failed");
-          this.log.error(res.data.split('data-ibm-login-error-text="')[1].split('"')[0]);
-          if (res.data.includes("CSIAH0320E")) {
-            this.log.error(
-              "Account blocked by Ford because of third party app usage. Please use contact ford to unblock your account and create a dummy account and share your car with this account. E.g. yourmail+ford1@gmail.com",
-            );
-          }
-          return;
-        }
-
-        this.log.error(JSON.stringify(res.data));
-        return;
+        return res.data;
       })
       .catch((error) => {
         if (error && error.message.includes("Unsupported protocol")) {
@@ -145,28 +132,59 @@ class Ford extends utils.Adapter {
         error.response && this.log.error(JSON.stringify(error.response.data));
         return;
       });
+
+    const response = await this.requestClient({
+      method: "get",
+      maxBodyLength: Infinity,
+      url:
+        "https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/api/CombinedSigninAndSignup/confirmed?rememberMe=false&csrf_token=" +
+        loginForm.csrf +
+        "&tx=StateProperties=" +
+        loginForm.transId +
+        "&p=B2C_1A_SignInSignUp_de-DE&diags=%7B%22pageViewId%22%3A%22f874578f-ba50-42ab-a280-e873359c7c13%22%2C%22pageId%22%3A%22CombinedSigninAndSignup%22%2C%22trace%22%3A%5B%7B%22ac%22%3A%22T005%22%2C%22acST%22%3A1699959720%2C%22acD%22%3A12%7D%2C%7B%22ac%22%3A%22T021%20-%20URL%3Ahttps%3A%2F%2Fprodb2cuicontentdelivery-d0bbevfjaxfmedda.z01.azurefd.net%2Fb2cui%2Fui%2Fford%2Fde-DE%2Funified.html%3Fver%3D20231016.2%26SessionId%3Da45accf4-bd4a-43c1-af9a-e5318144cbd2%26InstanceId%3Db5df47d1-52fa-410f-8cba-fbb9aa046cd0%22%2C%22acST%22%3A1699959720%2C%22acD%22%3A3872%7D%2C%7B%22ac%22%3A%22T019%22%2C%22acST%22%3A1699959724%2C%22acD%22%3A37%7D%2C%7B%22ac%22%3A%22T004%22%2C%22acST%22%3A1699959724%2C%22acD%22%3A15%7D%2C%7B%22ac%22%3A%22T003%22%2C%22acST%22%3A1699959724%2C%22acD%22%3A9%7D%2C%7B%22ac%22%3A%22T035%22%2C%22acST%22%3A1699959724%2C%22acD%22%3A0%7D%2C%7B%22ac%22%3A%22T030Online%22%2C%22acST%22%3A1699959724%2C%22acD%22%3A0%7D%2C%7B%22ac%22%3A%22T002%22%2C%22acST%22%3A1699959760%2C%22acD%22%3A0%7D%2C%7B%22ac%22%3A%22T018T010%22%2C%22acST%22%3A1699959758%2C%22acD%22%3A2084%7D%5D%7D",
+      headers: {
+        "upgrade-insecure-requests": "1",
+        "user-agent":
+          "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36",
+        accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "x-requested-with": "com.ford.fordpasseu",
+        "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+      },
+    })
+      .then((res) => {
+        this.log.warn(JSON.stringify(res.data));
+      })
+      .catch((error) => {
+        if (error && error.message.includes("Unsupported protocol")) {
+          return qs.parse(error.request._options.path.split("?")[1]);
+        }
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
     if (!response) {
       return;
     }
-
     const midToken = await this.requestClient({
       method: "post",
-      url: "https://sso.ci.ford.com/oidc/endpoint/default/token",
+      maxBodyLength: Infinity,
+      url: "https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/token",
       headers: {
-        Host: "sso.ci.ford.com",
-        "x-dynatrace": this.dyna,
+        "x-dynatrace": "MT_3_31_2178850551_22-0_997d5837-2d14-4fbb-a338-5c70d678d40e_0_11083_292",
         "content-type": "application/x-www-form-urlencoded",
-        "user-agent": "okhttp/4.9.2",
+        "user-agent": "okhttp/4.11.0",
       },
-      data: qs.stringify({
-        client_id: "9fb503e0-715b-47e8-adfd-ad4b7770f73b",
-        grant_type: "authorization_code",
-        code_verifier: code_verifier,
-        code: response.code,
+      data: {
+        client_id: "09852200-05fd-41f6-8c21-d36d3497dc64",
+        scope: "09852200-05fd-41f6-8c21-d36d3497dc64 openid",
         redirect_uri: "fordapp://userauthorized",
-        scope: "openid",
+        grant_type: "authorization_code",
         resource: "",
-      }),
+        code: response.code,
+        code_verifier: "FS_QIRCmJkRws7m8pcAfFQeZABp9cf6L0V_bSo9r60Q",
+      },
     })
       .then((res) => {
         this.log.debug(JSON.stringify(res.data));
@@ -181,7 +199,7 @@ class Ford extends utils.Adapter {
       });
     await this.requestClient({
       method: "post",
-      url: "https://api.mps.ford.com/api/token/v2/cat-with-ci-access-token",
+      url: "https://api.mps.ford.com/api/token/v2/cat-with-b2c-access-token",
 
       headers: {
         accept: "*/*",
@@ -190,7 +208,7 @@ class Ford extends utils.Adapter {
         "user-agent": "okhttp/4.9.2",
         "accept-language": "de-de",
       },
-      data: { ciToken: midToken.access_token },
+      data: { idpToken: midToken.access_token },
     })
       .then((res) => {
         this.log.debug(JSON.stringify(res.data));
