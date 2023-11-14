@@ -59,6 +59,10 @@ class Ford extends utils.Adapter {
       this.config.interval = 0.5;
     }
 
+    if (!this.config.username || !this.config.password) {
+      this.log.error("Username or password missing");
+      return;
+    }
     this.subscribeStates("*");
 
     await this.login();
@@ -197,6 +201,9 @@ class Ford extends utils.Adapter {
           this.log.error(JSON.stringify(error.response.data));
         }
       });
+    if (!midToken) {
+      return;
+    }
     await this.requestClient({
       method: "post",
       url: "https://api.mps.ford.com/api/token/v2/cat-with-b2c-access-token",
