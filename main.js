@@ -99,12 +99,20 @@ class Ford extends utils.Adapter {
         return JSON.parse(res.data.split('SETTINGS = ')[1].split(';')[0]);
       })
       .catch((error) => {
+        this.log.error('Failed to get login form');
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
         }
       });
-
+    if (!loginForm) {
+      return;
+    }
+    if (!loginForm.csrf) {
+      this.log.error('Failed to get csrf token');
+      this.log.error(loginForm);
+      return;
+    }
     await this.requestClient({
       method: 'post',
       maxBodyLength: Infinity,
@@ -131,7 +139,7 @@ class Ford extends utils.Adapter {
         if (error && error.message.includes('Unsupported protocol')) {
           return qs.parse(error.request._options.path.split('?')[1]);
         }
-
+        this.log.error('Failed to first Azure Step');
         this.log.error(error);
         error.response && this.log.error(JSON.stringify(error.response.data));
         return;
@@ -163,6 +171,7 @@ class Ford extends utils.Adapter {
         if (error && error.message.includes('Unsupported protocol')) {
           return qs.parse(error.request._options.path.split('?')[1]);
         }
+        this.log.error('Failed to second Azure Step');
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
@@ -196,6 +205,7 @@ class Ford extends utils.Adapter {
         return res.data;
       })
       .catch((error) => {
+        this.log.error('Failed to get mid token');
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
@@ -225,6 +235,7 @@ class Ford extends utils.Adapter {
         return res.data;
       })
       .catch((error) => {
+        this.log.error('Code Token failed');
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
