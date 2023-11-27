@@ -96,6 +96,7 @@ class Ford extends utils.Adapter {
       },
     })
       .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
         return JSON.parse(res.data.split('SETTINGS = ')[1].split(';')[0]);
       })
       .catch((error) => {
@@ -133,6 +134,7 @@ class Ford extends utils.Adapter {
       data: { request_type: 'RESPONSE', signInName: this.config.username, password: this.config.password },
     })
       .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
         return res.data;
       })
       .catch((error) => {
