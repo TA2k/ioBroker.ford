@@ -353,6 +353,10 @@ class Ford extends utils.Adapter {
 
   async updateVehicles() {
     await this.getAutonomToken();
+    if (!this.autonom) {
+      this.log.error('Failed to get autonom token');
+      return;
+    }
     const statusArray = [
       // { path: "statusv2", url: "https://usapi.cv.ford.com/api/vehicles/v2/$vin/status", desc: "Current status v2 of the car" },
       // { path: "statususv4", url: "https://usapi.cv.ford.com/api/vehicles/v4/$vin/status", desc: "Current status v4 of the car" },
