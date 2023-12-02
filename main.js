@@ -167,7 +167,8 @@ class Ford extends utils.Adapter {
       },
     })
       .then((res) => {
-        this.log.warn(JSON.stringify(res.data));
+        this.log.warn('Check your username and password. Logout and Login in the Ford App');
+        // this.log.warn(JSON.stringify(res.data));
       })
       .catch((error) => {
         if (error && error.message.includes('Unsupported protocol')) {
