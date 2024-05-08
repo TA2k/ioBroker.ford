@@ -80,7 +80,7 @@ class Ford extends utils.Adapter {
     }
   }
   async login() {
-    let [code_verifier, codeChallenge] = this.getCodeChallenge();
+    // const [code_verifier, codeChallenge] = this.getCodeChallenge();
     const loginForm = await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
@@ -179,7 +179,7 @@ class Ford extends utils.Adapter {
     })
       .then((res) => {
         this.log.warn('Check your username and password. Logout and Login in the Ford App');
-        // this.log.warn(JSON.stringify(res.data));
+        this.log.debug(JSON.stringify(res.data));
       })
       .catch((error) => {
         if (error && error.message.includes('Unsupported protocol')) {
@@ -448,8 +448,8 @@ class Ford extends utils.Adapter {
             if (element.path === 'fuelrec') {
               data = res.data.value.fuelRecs;
             }
-            const forceIndex = null;
-            const preferedArrayName = null;
+
+            const preferedArrayName = undefined;
 
             await this.json2iob.parse(vin + '.' + element.path, data, {
               forceIndex: true,
