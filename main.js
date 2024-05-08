@@ -84,15 +84,26 @@ class Ford extends utils.Adapter {
     const loginForm = await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
-      url: 'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=Jj_XmHuW1023dDe1d_E__hKcnAKWQccxmXFplxru798&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
+      url: 'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
       headers: {
         'user-agent':
-          'Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36',
-        accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'x-requested-with': 'com.ford.fordpasseu',
-
         'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
+      },
+      params: {
+        redirect_uri: 'fordapp://userauthorized',
+        response_type: 'code',
+        max_age: '3600',
+        code_challenge: 'HESnqcX3o0CUoAfF_cSko-zUvZo6gVHgEq2cxfc3waw',
+        code_challenge_method: 'S256',
+        scope: ' 09852200-05fd-41f6-8c21-d36d3497dc64 openid',
+        client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
+        ui_locales: 'de-DE',
+        language_code: 'de-DE',
+        country_code: 'DEU',
+        ford_application_id: '1E8C7794-FF5F-49BC-9596-A1E0C86C5B19',
       },
     })
       .then((res) => {
@@ -118,7 +129,7 @@ class Ford extends utils.Adapter {
       method: 'post',
       maxBodyLength: Infinity,
       url:
-        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=StateProperties=' +
+        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=' +
         loginForm.transId +
         '&p=B2C_1A_SignInSignUp_de-DE',
       headers: {
