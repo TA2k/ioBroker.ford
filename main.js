@@ -75,6 +75,7 @@ class Ford extends utils.Adapter {
       this.log.error('Username or password missing');
       return;
     }
+
     this.subscribeStates('*');
 
     await this.login();
@@ -94,40 +95,40 @@ class Ford extends utils.Adapter {
   async login() {
     const [code_verifier, codeChallenge] = this.getCodeChallenge();
 
-    const loginForm = await got
-      .get('https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize', {
-        headers: {
-          'user-agent':
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-          accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'x-requested-with': 'com.ford.fordpasseu',
-          'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
-        },
-        searchParams: {
-          redirect_uri: 'fordapp://userauthorized',
-          response_type: 'code',
-          max_age: '3600',
-          code_challenge: codeChallenge,
-          code_challenge_method: 'S256',
-          scope: '09852200-05fd-41f6-8c21-d36d3497dc64 openid',
-          client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
-          ui_locales: 'de-DE',
-          language_code: 'de-DE',
-          country_code: 'DEU',
-          ford_application_id: '1E8C7794-FF5F-49BC-9596-A1E0C86C5B19',
-        },
-        cookieJar: this.cookieJar,
-        http2: true,
-      })
+    const loginForm = await this.requestClient({
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: 'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
+      headers: {
+        'user-agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'x-requested-with': 'com.ford.fordpasseu',
+        'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
+      },
+      params: {
+        redirect_uri: 'fordapp://userauthorized',
+        response_type: 'code',
+        max_age: '3600',
+        code_challenge: 'zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg',
+        code_challenge_method: 'S256',
+        scope: '09852200-05fd-41f6-8c21-d36d3497dc64 openid',
+        client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
+        ui_locales: 'de-DE',
+        language_code: 'de-DE',
+        country_code: 'DEU',
+        ford_application_id: '1E8C7794-FF5F-49BC-9596-A1E0C86C5B19',
+      },
+    })
       .then((res) => {
-        this.log.debug(JSON.stringify(res.body));
-        return JSON.parse(res.body.split('SETTINGS = ')[1].split(';')[0]);
+        this.log.debug(JSON.stringify(res.data));
+        return JSON.parse(res.data.split('SETTINGS = ')[1].split(';')[0]);
       })
       .catch((error) => {
         this.log.error('Failed to get login form');
         this.log.error(error);
         if (error.response) {
-          this.log.error(JSON.stringify(error.response.body));
+          this.log.error(JSON.stringify(error.response.data));
         }
       });
     if (!loginForm) {
@@ -138,30 +139,60 @@ class Ford extends utils.Adapter {
       this.log.error(loginForm);
       return;
     }
-    await got
-      .post(
-        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=' +
-          loginForm.transId +
-          '&p=B2C_1A_SignInSignUp_de-DE',
-        {
-          headers: {
-            'x-csrf-token': loginForm.csrf,
-            'user-agent':
-              'Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36',
-            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-            accept: 'application/json, text/javascript, */*; q=0.01',
-            'x-requested-with': 'XMLHttpRequest',
-            origin: 'https://login.ford.com',
-            'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
-          },
-          form: { request_type: 'RESPONSE', signInName: this.config.username, password: this.config.password },
-          cookieJar: this.cookieJar,
-          http2: true,
-        },
-      )
+    const data = `ewoJInNlbnNvcl9kYXRhIjogIjI7MzQyMjUxODs0NTk5ODU3OzE0LDAsMCwxLDIsMDtSWz59N1Y5fjdNLHlkeU9qNztRNy5FaFRFR05hVyA5TFJfO3g9dHhDbHNNXjppQVgoM01LM1YmbG9pYDM4ZXI2fkc4Okl9al89L1kyZ0J1KG8wWzMrYSk3ZyUuVXMwT3MhL3JzRXQoZSlMekVMWjhzRWxMfXlNLXlxNEFmLVZ1SFNwUl0yY2peI0ozckh6b35+QF0lPylLS1NbPHQ0byBeNmVhcVE2M0BVVHNzMnBOOip5Xm04RHdLMXs7dG55SkQxTk1ufVtmcDpjVW4qfTJzTClMZXJTNS82MEc4TTc+LEt0djZ0SWRxSGtnS10qKGZrLG14NCNefH5aclEtdDxFSGwgNCpnLEYjVFMmLXl7blooZTljNCE+SyNJM25TO3VCfC5INys+Vj8gbERyZ2tLTzIkLVJANXJlQ3tnRUdpUTFtKWI4L0RxZFM8NT1JP3dySWwrRzBrcHZYLH1ta0E7c1hxMTF+T3hmT0BPYWRxYmdYSmQ7OztaK21LSX5bVDlNLk50fXw/eWhaIWh0cDk1QX59UyM0Lkp5cE5JLUIyMHJTKlJkZCxuYVIoZSgsSFJxSlQjZHpzRHlfU2g6Pj1CKnlKJjc5MkpKOlRpJixXWHhwajkmQWEjXlNEYTdKMi5wN2A4VGRUSCsgTFImLV1gLCMgaE5hNVF+MXcqRUc1UD5CJFlqKCNQWFM2Mk50VHN+MDItYXE0e1JbVWpreSU7QTt6Yys4NCB2MFZxN0o2Vjd+O3V3I04zI3N8P0leY34jRW9de1JFez9MeD1tM20tW2cmZl8tQj0sVDU2Tzg4XmJtdUx2Sjc7S2M0Xy1hNm4wT2ZoWiZPTTZAUm8qbWolO0o4I2c0TyZPX0N8Sm5sKHN1RjtIY0VFNGNgfUBsNHVgd356TiB4bD1oV2RXNXdnLj1xdnZQdiwqRll6Qn1DdnFDRkkhU1hUKlRPZVgzKVJXWjQ8Qz1jW2kyQzM6bkR6OlRRWEtAfjZvQnBNSTcjI09vVVVxay8wQGUzWyt2Qi82XmR1WDdkZD9uY04+cnleSXFVaCVpamJmOF5AcVsyZyVgeTpqVG8oYDRgcHs4Ok1CflJuI0MrbyFZJERuLW0jeVBpJnE3SnB+YFI4fGhmWSxkdmAteGotcUt7ZHtkRl1hPVVxblZ2Oi1rWzRBXSN2V0IpSHZ7WzFAb1ZSTHttXkJtPGBQVHIxfHsxZnV+MkQjdW0uW1FUKEdJZ1czPDAgaD1bIW1tOGByeklEaWw4OnB5fEFocXZiNyhRWEJFKF9HP2U+OmE9bW5ZZ2owM0hKY1lMLWFqck5zcWpJNU06TC1wSnwgLWZRYzhSXS0qWWRvc2k0dzhXdEdCM1sqQTRIMTVaPEZfPmclckg4WHJGaWhkckpCUW08YHZrKGQufT4gKVM0WGhWM0NCcmo5Xi85XmhzTkxeeWctLzBMXmBYeCA3VD5We2dEUFMgO3cuaX5BQ2BXUVdBPnU8XV57NDpTZVI9NFBuY1RodkVXN2NRVlh4JnI6VG9lTl9uJCROZD0jO3tNdzI5W2Z2U3hWQF53Xmp9e29EcmFHXXJPPnd8T29pUk18V1I2Skl9ViwjcDojQElOOXdbWkFMaytdeGlNWWlZKlR4Xll+RiltO3RpfC4gUFtzTiQrIz9LLXJ5Qm9PSTlBdk0hXi1LNzdUMjEmcGJhZG5wJTVidkpsSDYzek5nJCxwIFVEMVJPbXRFRCovclBIK2FSZ1pRaS91U3xbSTQ1OiRsbjNWVHlMSzRDcGJBYzFDfjxyIFBqSy5uVkx3M01rMjVgO3Y+SX4peG9aVXhvdzI5eiQ7dDgkXzNsYjplZV9wY3o/Q2ZPTFUtcVFWNHAkUTcpQ2NGSCsuKGB9JE9yaSh7ODtPKl5zISszVFRkT18uIWEqL3RMNDR+S2RzWyZHcV4uSUVwa19nbHdlc2NRfXs8SkowXjR1KHhPPmhiek12ZSM/JjcwUHRndkhbbFkjP2d0NmFJcld4eFYsenJ+YG1XaUlCKj5EYl4qJjw0fVNpT0hqLTJfI2ZZbkU3SmgmQFEvWX1FZC95UVpMOS90blE/azggRHlCUmNEZnBFJk1jZFYwNTdZUzA9YmkuJD5oV2RHPlFTP0UoRDdMRUNtU2dXI3h3ezlSdTtbdER0eCBzKnUuXng7dn0vaEg/dCB1KU5hRC0yT0h2OXEwSE1eQDRpcGJ3T0IwRGlYU1RfOyFFbF5GW241YjZgPEJ+K3BZTXZFMXJ9MDVJIC5ONFI1LVdzfGosL2Apei9rOXJ+TDg8YyNjKVRUczBjcCA2STAuMF9qZ15RMDJdL3Y6ez1Wb1EjU0pMXWZucUxlQ24sc3hIKHoqQl43cl02P1MrMW9zJkFrdiNVSnE8cDFsdD4rMG1IRkNyOilTOihwRDBOITwmVkFIUXN0S3ZXNkpwNj0tck1hZ01XMmVXaVkkITwgJkF0WllnOkh+TDZZOFd4MTp8ZXQlWTAhVVMuLGxjRmBoMnVwbCE+dkIlaTEtOGhufXh0bS1fSiFbcmR3O0NvZlklbWh6fVd2cDsqV0cqSEtxYV1qd2c+LyUxOXd4bFFKQl9QTXI6TCZzS0RybzolJj01NE58V0M1MzUxPDB9amMwO1FdfUAmfG5TUDt4Uz1SOmteM2BGSDEmZWsmQ0UkdEd3LGouQi9xJUFRNjBmQ2pBRFdlNSRpK2koN0VXUjksMGxnY0B8dEtXNz4wO3Zid01daTJtWUpyWzMmSU1hVzd9QF1NLlQxfDRlVy0yIUZMfip9NGFJVj5AcmtIOVFVNEZie0ouQXNKLylobXl6MjA0eTB3SX1TcSs5TCgkS2s4Jk1GcV9TYC1NLVQ5cGpjRyxKdUFkLC55NF5je20qNnl1ZH1YcjwpKmBfaD0xPWtzcWlAPER8ITlNJFswSXhWW100KGgmQSBSbVBRNWFMcTpFWmdWQHkybGtQRjcsZiBeRyNuZiA9T0JpdCs1bm0/WTIgYTdHZj80clJXI2t4SVd7Q2Rlc3Q5VmBmamxXLDZHcjkqamIlcy1+eCBbaG1WYEN1WispdSoqIGdHUVE4bzlBYVYrKG9rVTgvPkAhO2s8dX1PfVF8V0IvQX4udFA7TSpjMkBpXj1ieF1DaE8qLmg1M3FgWUlaI2V+Y3swV053WlZLRD57UU0wN0tkUHZOLyBWSy1pRnt1I29oQ3NCVTlqLlVUWz43IEotZTQ/eTl0cS5eLF9GKzhuPkI2VTpMbEphNDpkPGJvLnMhfnN6U0Q/P0UySj5xT08rbHtfaWJDKzAzamxESVA9NSw+cHlTMFVxc2x5fW47IFNNMCA5bC9bXi9rd2dNP0I5PEU1THhefE1BQFBmSCBoPkM5M04zT3J0aTdTRyQqOzIkfnRrKXczXltQLT0pXmNAQyUkUEJiMiwoU31tZHFlNCUwIzYoL0hocSRkb2JFPnYtenheP2M9Pj5lSzotLi5QaDogNnYsRCQtPWg4IFhgZyVTYHE3WkJCKntRfSo+XWs8KGl0aGtFJlsoTShhSHNhOXRiR1VdP3lyOFlgXVY2VmEyNGpLXiohezxuTkNCUDhYUVpSTUFefj95dWxkLTpwdkJZMTkgcFd4LWxLVDpIUHVzMHwhWEdXeGNEYV8wYXAlW3tGX1NNOklxVi8tOWJvbiZHQlgpYy9NQk5NRCAwcjdtLmRfKW5ZJEE3LSYtUVQ6LD1JYkU3XSFvYH0wW31aNC8mYHM6KSVWdGZbaXQmQ2s1QkJjYUxxS0U9dWtEak4jYClgfEYzN2YySnotTHAwXWJCQz00IVUxU1h8QTZGKl9PeG99OjI9eF9Kdzs+Q1UwRSM3aUVQJF5gcjpbRHRnMTZiR2kwLDF5VmlHdzdxS24hXm5APD97XWV3QmNMKXtTUSZ0OilyI29Xcl17QntlJVQkVnF0IWZTb2dCb3IxMHZ3aUh4TWhvWUBjWSxRLW1Dbkt0RlhePTFLWUNrUEdOTjNqbzojK1MzIyQ/JFgsYU8jfS9ndykmZS9FIgp9`;
+
+    await this.requestClient({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url: 'https://login.ford.com/EXMGLCqhRIBf/i4IHR2/QvWAKs/7zz9NGLwzki3/VwVb/OxU2/BFYBGg',
+      headers: {
+        Host: 'login.ford.com',
+        Accept: '*/*',
+        'Sec-Fetch-Site': 'same-origin',
+        'Accept-Language': 'en-GB,en;q=0.9',
+        'Sec-Fetch-Mode': 'cors',
+        'Content-Type': 'text/plain;charset=UTF-8',
+        Origin: 'https://login.ford.com',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
+        Referer:
+          'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
+        'Sec-Fetch-Dest': 'empty',
+      },
+      data: Buffer.from(data, 'base64').toString('utf-8'),
+    })
       .then((res) => {
-        this.log.debug(JSON.stringify(res));
-        return res;
+        this.log.debug(JSON.stringify(res.data));
+        return res.data;
+      })
+      .catch((error) => {
+        this.log.error('Failed to get login form');
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
+    await this.requestClient({
+      method: 'post',
+      maxBodyLength: Infinity,
+      url:
+        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=' +
+        loginForm.transId +
+        '&p=B2C_1A_SignInSignUp_de-DE',
+      headers: {
+        'x-csrf-token': loginForm.csrf,
+        'user-agent':
+          'Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.66 Mobile Safari/537.36',
+        'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        accept: 'application/json, text/javascript, */*; q=0.01',
+        'x-requested-with': 'XMLHttpRequest',
+        origin: 'https://login.ford.com',
+        'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
+      },
+      data: { request_type: 'RESPONSE', signInName: this.config.username, password: this.config.password },
+    })
+      .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
+        return res.data;
       })
       .catch((error) => {
         if (error && error.message.includes('Unsupported protocol')) {
@@ -170,7 +201,6 @@ class Ford extends utils.Adapter {
         this.log.error('Failed to first Azure Step');
         this.log.error(error);
         error.response && this.log.error(JSON.stringify(error.response.data));
-        this.log.error('Check your username and password. Logout and Login in the Ford App');
         return;
       });
 
@@ -226,7 +256,7 @@ class Ford extends utils.Adapter {
         grant_type: 'authorization_code',
         resource: '',
         code: response.code,
-        code_verifier: code_verifier,
+        code_verifier: 'CIADHQqnmEoma2SDA4edG46FlWYZQrQrOSNIuL8fk7E',
       },
     })
       .then((res) => {
