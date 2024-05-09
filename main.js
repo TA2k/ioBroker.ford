@@ -80,7 +80,7 @@ class Ford extends utils.Adapter {
     }
   }
   async login() {
-    // const [code_verifier, codeChallenge] = this.getCodeChallenge();
+    const [code_verifier, codeChallenge] = this.getCodeChallenge();
     const loginForm = await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
@@ -96,9 +96,9 @@ class Ford extends utils.Adapter {
         redirect_uri: 'fordapp://userauthorized',
         response_type: 'code',
         max_age: '3600',
-        code_challenge: 'HESnqcX3o0CUoAfF_cSko-zUvZo6gVHgEq2cxfc3waw',
+        code_challenge: codeChallenge,
         code_challenge_method: 'S256',
-        scope: ' 09852200-05fd-41f6-8c21-d36d3497dc64 openid',
+        scope: '09852200-05fd-41f6-8c21-d36d3497dc64 openid',
         client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
         ui_locales: 'de-DE',
         language_code: 'de-DE',
@@ -210,7 +210,7 @@ class Ford extends utils.Adapter {
         grant_type: 'authorization_code',
         resource: '',
         code: response.code,
-        code_verifier: 'FS_QIRCmJkRws7m8pcAfFQeZABp9cf6L0V_bSo9r60Q',
+        code_verifier: code_verifier,
       },
     })
       .then((res) => {
