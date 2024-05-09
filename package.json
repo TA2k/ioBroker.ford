@@ -17,6 +17,7 @@
     "url": "https://github.com/TA2k/ioBroker.ford"
   },
   "dependencies": {
+    "@esm2cjs/got": "^13.0.0",
     "@iobroker/adapter-core": "^3.1.4",
     "axios": "^1.6.8",
     "axios-http2-adapter": "^1.0.1",
