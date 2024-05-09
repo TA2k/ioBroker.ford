@@ -12,6 +12,8 @@ const qs = require('qs');
 const Json2iob = require('json2iob');
 const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
+const { createHTTP2Adapter } = require('axios-http2-adapter');
+const http2 = require('http2-wrapper');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 class Ford extends utils.Adapter {
@@ -32,6 +34,15 @@ class Ford extends utils.Adapter {
     this.appId = '667D773E-1BDC-4139-8AD0-2B16474E8DC7';
     this.dyna = 'MT_3_30_2352378557_3-0_' + uuidv4() + '_0_789_87';
     this.cookieJar = new tough.CookieJar();
+
+    const adapterConfig = {
+      agent: new http2.Agent({
+        /* options */
+      }),
+      force: true, // Force HTTP/2 without ALPN check - adapter will not check whether the endpoint supports http2 before the request
+    };
+
+    axios.defaults.adapter = createHTTP2Adapter(adapterConfig);
     this.requestClient = axios.create({
       withCredentials: true,
       httpsAgent: new HttpsCookieAgent({
@@ -155,6 +166,7 @@ class Ford extends utils.Adapter {
         this.log.error('Failed to first Azure Step');
         this.log.error(error);
         error.response && this.log.error(JSON.stringify(error.response.data));
+        this.log.error('Check your username and password. Logout and Login in the Ford App');
         return;
       });
 
