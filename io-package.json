@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "news": {
+      "0.2.1": {
+        "en": "fixed login and added domain ending in settings",
+        "de": "Login gefixt und Domain-Ende hinzugefügt in den Einstellungen",
+        "ru": "фиксированный логин и добавленный домен, заканчивающийся в настройках",
+        "pt": "login fixo e domínio adicionado terminando em configurações",
+        "nl": "vaste login en toegevoegde domein eindigend in instellingen",
+        "fr": "connexion fixe et domaine ajouté se terminant dans les paramètres",
+        "it": "login fisso e dominio aggiunto che termina nelle impostazioni",
+        "es": "login fijo y finalización de dominio añadido en configuraciones",
+        "pl": "stałe logowanie i dodawane domeny kończące się ustawieniami",
+        "uk": "виправлений логін і додано закінчення домену в налаштуваннях",
+        "zh-cn": "在设置中固定登录和添加域结束"
+      },
       "0.2.0": {
         "en": "Fix Login",
         "de": "Login Fix"
@@ -23,30 +36,6 @@
       },
       "0.0.13": {
         "en": "removed not working detail api"
-      },
-      "0.0.12": {
-        "en": "fix login"
-      },
-      "0.0.11": {
-        "en": "fix login"
-      },
-      "0.0.10": {
-        "en": "status remote Problem behoben. Bei Warnungen Objektbaum löschen und Adapter neu starten"
-      },
-      "0.0.8": {
-        "en": "add remote control for refresh"
-      },
-      "0.0.7": {
-        "en": "initial release",
-        "de": "Erstveröffentlichung",
-        "ru": "Начальная версия",
-        "pt": "lançamento inicial",
-        "nl": "Eerste uitgave",
-        "fr": "Première version",
-        "it": "Versione iniziale",
-        "es": "Versión inicial",
-        "pl": "Pierwsze wydanie",
-        "zh-cn": "首次出版"
       }
     },
     "title": "Ford",
@@ -113,7 +102,8 @@
     "password": "",
     "interval": 5,
     "forceUpdate": true,
-    "skip12VCheck": false
+    "skip12VCheck": false,
+    "domain": "de"
   },
   "objects": [],
   "instanceObjects": [

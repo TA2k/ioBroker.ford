@@ -12,11 +12,8 @@ const qs = require('qs');
 const Json2iob = require('json2iob');
 const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
-const { createHTTP2Adapter } = require('axios-http2-adapter');
-const http2 = require('http2-wrapper');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
-const got = require('@esm2cjs/got').default;
 class Ford extends utils.Adapter {
   /**
    * @param {Partial<utils.AdapterOptions>} [options={}]
@@ -75,7 +72,7 @@ class Ford extends utils.Adapter {
       this.log.error('Username or password missing');
       return;
     }
-
+    this.domain = this.config.domain || 'de';
     this.subscribeStates('*');
 
     await this.login();
@@ -93,17 +90,17 @@ class Ford extends utils.Adapter {
     }
   }
   async login() {
-    const [code_verifier, codeChallenge] = this.getCodeChallenge();
+    // const [code_verifier, codeChallenge] = this.getCodeChallenge();
 
     const loginForm = await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
-      url: 'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
+      url: 'https://login.ford.' + this.domain + '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
       headers: {
         'user-agent':
           'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
         accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'x-requested-with': 'com.ford.fordpasseu',
+        'x-requested-with': 'com.ford.fordpass',
         'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
       },
       params: {
@@ -146,16 +143,17 @@ class Ford extends utils.Adapter {
       maxBodyLength: Infinity,
       url: 'https://login.ford.com/EXMGLCqhRIBf/i4IHR2/QvWAKs/7zz9NGLwzki3/VwVb/OxU2/BFYBGg',
       headers: {
-        Host: 'login.ford.com',
         Accept: '*/*',
         'Sec-Fetch-Site': 'same-origin',
         'Accept-Language': 'en-GB,en;q=0.9',
         'Sec-Fetch-Mode': 'cors',
         'Content-Type': 'text/plain;charset=UTF-8',
-        Origin: 'https://login.ford.com',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
         Referer:
-          'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
+          'https://login.ford.' +
+          this.domain +
+          '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
         'Sec-Fetch-Dest': 'empty',
       },
       data: Buffer.from(data, 'base64').toString('utf-8'),
@@ -165,17 +163,19 @@ class Ford extends utils.Adapter {
         return res.data;
       })
       .catch((error) => {
-        this.log.error('Failed to get login form');
-        this.log.error(error);
+        this.log.debug('Failed to submit akm bot data');
+        this.log.debug(error);
         if (error.response) {
-          this.log.error(JSON.stringify(error.response.data));
+          this.log.debug(JSON.stringify(error.response.data));
         }
       });
     await this.requestClient({
       method: 'post',
       maxBodyLength: Infinity,
       url:
-        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=' +
+        'https://login.ford.' +
+        this.domain +
+        '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/SelfAsserted?tx=' +
         loginForm.transId +
         '&p=B2C_1A_SignInSignUp_de-DE',
       headers: {
@@ -185,7 +185,7 @@ class Ford extends utils.Adapter {
         'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         accept: 'application/json, text/javascript, */*; q=0.01',
         'x-requested-with': 'XMLHttpRequest',
-        origin: 'https://login.ford.com',
+        origin: 'https://login.ford.' + this.domain + '',
         'accept-language': 'de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6',
       },
       data: { request_type: 'RESPONSE', signInName: this.config.username, password: this.config.password },
@@ -208,7 +208,9 @@ class Ford extends utils.Adapter {
       method: 'get',
       maxBodyLength: Infinity,
       url:
-        'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/api/CombinedSigninAndSignup/confirmed?rememberMe=false&csrf_token=' +
+        'https://login.ford.' +
+        this.domain +
+        '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/api/CombinedSigninAndSignup/confirmed?rememberMe=false&csrf_token=' +
         loginForm.csrf +
         '&tx=StateProperties=' +
         loginForm.transId +
@@ -243,7 +245,7 @@ class Ford extends utils.Adapter {
     const midToken = await this.requestClient({
       method: 'post',
       maxBodyLength: Infinity,
-      url: 'https://login.ford.com/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/token',
+      url: 'https://login.ford.' + this.domain + '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/token',
       headers: {
         'x-dynatrace': 'MT_3_31_2178850551_22-0_997d5837-2d14-4fbb-a338-5c70d678d40e_0_11083_292',
         'content-type': 'application/x-www-form-urlencoded',
