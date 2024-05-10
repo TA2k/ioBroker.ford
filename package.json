@@ -1,6 +1,6 @@
 {
   "name": "iobroker.ford",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Adapter for FordPass",
   "author": {
     "name": "TA2k",
@@ -17,10 +17,8 @@
     "url": "https://github.com/TA2k/ioBroker.ford"
   },
   "dependencies": {
-    "@esm2cjs/got": "^13.0.0",
     "@iobroker/adapter-core": "^3.1.4",
     "axios": "^1.6.8",
-    "axios-http2-adapter": "^1.0.1",
     "http-cookie-agent": "^5.0.4",
     "json2iob": "^2.6.11",
     "qs": "^6.12.1",
@@ -38,7 +36,7 @@
     "typescript": "~5.4.5"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "main": "main.js",
   "scripts": {
@@ -49,7 +47,7 @@
     "test": "npm run test:js && npm run test:package",
     "check": "tsc --noEmit -p tsconfig.check.json",
     "lint": "eslint",
-    "relase": "release-script --all"
+    "release": "release-script --all"
   },
   "bugs": {
     "url": "https://github.com/TA2k/ioBroker.ford/issues"
