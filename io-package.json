@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "news": {
-      "0.2.1": {
+      "0.2.2": {
         "en": "fixed login and added domain ending in settings",
         "de": "Login gefixt und Domain-Ende hinzugefügt in den Einstellungen",
         "ru": "фиксированный логин и добавленный домен, заканчивающийся в настройках",
