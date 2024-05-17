@@ -72,7 +72,7 @@ class Ford extends utils.Adapter {
       this.log.error('Username or password missing');
       return;
     }
-    this.currentDomain = this.config.domain || 'de';
+    this.currentDomain = 'com';
     this.subscribeStates('*');
 
     await this.login();
@@ -166,8 +166,8 @@ class Ford extends utils.Adapter {
         return res.data;
       })
       .catch((error) => {
-        this.log.debug('Failed to submit akm bot data');
-        this.log.debug(error);
+        this.log.info('Failed to submit akm bot data');
+        this.log.info(error);
         if (error.response) {
           this.log.debug(JSON.stringify(error.response.data));
         }

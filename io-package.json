@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "news": {
+      "0.2.3": {
+        "en": "reverted domain ending setting to fix login",
+        "de": "Domain Einstellung rückgängig gemacht um Login zu fixen",
+        "ru": "возвращенный параметр окончания домена для фиксации логина",
+        "pt": "configuração de terminação de domínio revertida para corrigir login",
+        "nl": "teruggedraaide domein einde instelling om login te repareren",
+        "fr": "réglage de fin de domaine retourné pour fixer la connexion",
+        "it": "reverted dominio che termina l'impostazione per correggere il login",
+        "es": "configuración de terminación de dominio revertido para fijar login",
+        "pl": "odwrócone ustawienie zakończenia domeny, aby naprawić logowanie",
+        "uk": "перевернути налаштування домену, щоб виправити логін",
+        "zh-cn": "返回域结束设置以固定登录"
+      },
       "0.2.2": {
         "en": "fixed login and added domain ending in settings",
         "de": "Login gefixt und Domain-Ende hinzugefügt in den Einstellungen",
@@ -33,9 +46,6 @@
       },
       "0.0.14": {
         "en": "Improvements to prevent blocking from Ford"
-      },
-      "0.0.13": {
-        "en": "removed not working detail api"
       }
     },
     "title": "Ford",
@@ -102,8 +112,7 @@
     "password": "",
     "interval": 5,
     "forceUpdate": true,
-    "skip12VCheck": false,
-    "domain": "de"
+    "skip12VCheck": false
   },
   "objects": [],
   "instanceObjects": [
