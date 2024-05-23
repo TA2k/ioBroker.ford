@@ -75,7 +75,36 @@ class Ford extends utils.Adapter {
     this.currentDomain = 'com';
     this.subscribeStates('*');
 
-    await this.login();
+    const auth = await this.getStateAsync('auth');
+    if (auth && auth.val) {
+      this.session = JSON.parse(auth.val);
+      this.refreshApiToken();
+    } else if (this.config.clientId && this.config.secret) {
+      this.log.info('Found clientID start API Login');
+      if (!this.config.codeUrl) {
+        this.log.error('Code URL missing');
+        this.log.warn('Please connect your car with the FordPass API and copy the last Url in the settings');
+        this.log.warn(
+          'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
+            this.config.clientId,
+        );
+        const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
+        const obj = await this.getForeignObjectAsync(adapterConfig);
+        if (obj) {
+          obj.native.connectUrl =
+            'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
+            this.config.clientId;
+          await this.setForeignObjectAsync(adapterConfig, obj);
+        } else {
+          this.log.error('no Adapterconfig found');
+        }
+
+        return;
+      }
+      await this.loginApi();
+    } else {
+      await this.login();
+    }
 
     if (this.session.access_token) {
       await this.getVehicles();
@@ -89,6 +118,92 @@ class Ford extends utils.Adapter {
       }, (this.session.expires_in - 120) * 1000);
     }
   }
+  async refreshApiToken() {
+    this.log.debug('Refresh Token');
+    await this.requestClient({
+      method: 'post',
+      url: 'https://dah2vb2cprod.b2clogin.com/914d88b1-3523-4bf6-9be4-1b96b4f6f919/oauth2/v2.0/token?p=B2C_1A_signup_signin_common',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: {
+        grant_type: 'refresh_token',
+        client_id: this.config.clientId,
+        client_secret: this.config.secret,
+        refresh_token: this.session.refresh_token,
+      },
+    })
+      .then(async (res) => {
+        this.log.debug(JSON.stringify(res.data));
+        this.session = res.data;
+        this.setState('info.connection', true, true);
+        this.log.debug('Refresh Token successful');
+        await this.extendObjectAsync('auth', {
+          type: 'state',
+          common: {
+            name: 'auth',
+            type: 'string',
+            role: 'state',
+            read: true,
+            write: true,
+          },
+          native: {},
+        });
+        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+      })
+      .catch((error) => {
+        this.log.error('Failed to refresh token');
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
+  }
+  async loginApi() {
+    const code = qs.parse(this.config.codeUrl.split('?')[1]).code;
+
+    await this.requestClient({
+      method: 'post',
+      url: 'https://api.mps.ford.com/api/oauth/token',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      data: {
+        grant_type: 'authorization_code',
+        client_id: this.config.clientId,
+        client_secret: this.config.secret,
+        redirect_uri: 'https://localhost:3000',
+        code: code,
+      },
+    })
+      .then(async (res) => {
+        this.log.debug(JSON.stringify(res.data));
+        this.session = res.data;
+        this.setState('info.connection', true, true);
+        this.log.info('Login successful');
+        await this.extendObjectAsync('auth', {
+          type: 'state',
+          common: {
+            name: 'auth',
+            type: 'string',
+            role: 'state',
+            read: true,
+            write: true,
+          },
+          native: {},
+        });
+        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+      })
+      .catch((error) => {
+        this.log.error('Failed to get token');
+        this.log.error("Delete auth state object and restart the adapter. Don't forget to set the codeUrl in the settings");
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
+  }
+
   async login() {
     // const [code_verifier, codeChallenge] = this.getCodeChallenge();
 

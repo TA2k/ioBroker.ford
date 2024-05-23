@@ -87,7 +87,39 @@
           <label for="password" class="translate">FordPass App Password</label>
         </div>
       </div>
+      <div class="row">
+        <a
+          href="https://ecmarketplaceprod.b2clogin.com/ecmarketplaceprod.onmicrosoft.com/B2C_1_DMARK_SignUpIn/oauth2/v2.0/authorize?response_type=code&response_mode=query&client_id=0d9f69b8-3b80-4f89-ac7b-ac5666d59cdd&redirect_uri=https://api.mps.ford.com/dmapiresource/v1/callback/login&scope=0d9f69b8-3b80-4f89-ac7b-ac5666d59cdd%20openid%20offline_access"
+          target="_blank"
+          class="translate"
+          >Get Ford API ClientId and Secret</a
+        >
+      </div>
 
+      <div class="row">
+        <div class="col s6 input-field">
+          <input type="text" class="value" id="clientId" />
+          <label for="clientid" class="translate">Ford API ClientId</label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col s6 input-field">
+          <input type="password" class="value" id="secret" />
+          <label for="secret" class="translate">Ford API Secret</label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col s6 input-field">
+          <input type="text" class="value" id="connectUrl" />
+          <label for="connectUrl" class="translate">Enter ClientID and then open this url. Copy last url in the next box</label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col s6 input-field">
+          <input type="text" class="value" id="codeUrl" />
+          <label for="codeUrl" class="translate">Enter ClientID and then open this url. Copy last url in the next box</label>
+        </div>
+      </div>
       <div class="row">
         <div class="col s2 input-field">
           <input type="number" class="value" id="interval" />
