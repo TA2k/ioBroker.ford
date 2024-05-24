@@ -102,23 +102,33 @@ class Ford extends utils.Adapter {
         return;
       }
       await this.loginApi();
+      if (this.session.access_token) {
+        await this.getVehiclesApi();
+        await this.updateVehiclesApi();
+        this.updateInterval = setInterval(async () => {
+          await this.updateVehiclesApi();
+        }, this.config.interval * 60 * 1000);
+        this.refreshTokenInterval = setInterval(() => {
+          this.refreshTokenApi();
+        }, (this.session.expires_in - 120) * 1000);
+      }
     } else {
       await this.login();
-    }
 
-    if (this.session.access_token) {
-      await this.getVehicles();
-      await this.cleanObjects();
-      await this.updateVehicles();
-      this.updateInterval = setInterval(async () => {
+      if (this.session.access_token) {
+        await this.getVehicles();
+        await this.cleanObjects();
         await this.updateVehicles();
-      }, this.config.interval * 60 * 1000);
-      this.refreshTokenInterval = setInterval(() => {
-        this.refreshToken();
-      }, (this.session.expires_in - 120) * 1000);
+        this.updateInterval = setInterval(async () => {
+          await this.updateVehicles();
+        }, this.config.interval * 60 * 1000);
+        this.refreshTokenInterval = setInterval(() => {
+          this.refreshToken();
+        }, (this.session.expires_in - 120) * 1000);
+      }
     }
   }
-  async refreshApiToken() {
+  async refreshTokenApi() {
     this.log.debug('Refresh Token');
     await this.requestClient({
       method: 'post',
@@ -416,6 +426,111 @@ class Ford extends utils.Adapter {
       })
       .catch((error) => {
         this.log.error('Code Token failed');
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
+  }
+
+  async getVehiclesApi() {
+    await this.requestClient({
+      method: 'get',
+      maxBodyLength: Infinity,
+      url: 'https://api.mps.ford.com/api/fordconnect/v2/vehicles',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+        Authorization: 'Bearer ' + this.session.access_token,
+      },
+    })
+      .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
+        /* example
+        {status: "SUCCESS", vehicles:[{vehicleId:"foo"}]}
+      }
+      */
+        for (const vehicle of res.data.vehicles) {
+          const name = vehicle.nickName;
+          const vin = vehicle.vehicleId;
+          this.vinArray.push(vin);
+          this.setObjectNotExists(vin, {
+            type: 'device',
+            common: {
+              name: name,
+            },
+            native: {},
+          });
+          this.setObjectNotExists(vin + '.status', {
+            type: 'channel',
+            common: {
+              name: 'Car Status',
+            },
+            native: {},
+          });
+          this.setObjectNotExists(vin + '.remote', {
+            type: 'channel',
+            common: {
+              name: 'Remote Controls',
+            },
+            native: {},
+          });
+          this.setObjectNotExists(vin + '.general', {
+            type: 'channel',
+            common: {
+              name: 'General Car Information',
+            },
+            native: {},
+          });
+          this.json2iob.parse(vin + '.general', vehicle);
+          const remoteArray = [
+            { command: 'engine/start', name: 'True = Start, False = Stop' },
+            { command: 'doors/lock', name: 'True = Lock, False = Unlock' },
+            { command: 'status', name: 'True = Request Status Update' },
+            { command: 'refresh', name: 'True = Refresh Status' },
+          ];
+          remoteArray.forEach((remote) => {
+            this.setObjectNotExists(vin + '.remote.' + remote.command, {
+              type: 'state',
+              common: {
+                name: remote.name || '',
+                type: remote.type || 'boolean',
+                role: remote.role || 'boolean',
+                write: true,
+                read: true,
+              },
+              native: {},
+            });
+          });
+        }
+      })
+      .catch((error) => {
+        this.log.error('Failed to get vehicles');
+        this.log.error(error);
+        if (error.response) {
+          this.log.error(JSON.stringify(error.response.data));
+        }
+      });
+  }
+
+  async updateVehicleApi(vin) {
+    await this.requestClient({
+      method: 'post',
+      url: `https://api.mps.ford.com/api/fordconnect/v1/vehicles/${vin}/status`,
+      headers: {
+        Accept: '*/*',
+        'Content-Type': 'application/json',
+        'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+        Authorization: 'Bearer ' + this.session.access_token,
+      },
+    })
+      .then((res) => {
+        this.log.debug(JSON.stringify(res.data));
+        this.json2iob.parse(vin + '.status', res.data);
+      })
+      .catch((error) => {
+        this.log.error('Failed to update vehicle');
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
