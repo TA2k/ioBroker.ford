@@ -17,7 +17,8 @@
 Adapter for FordPass
 
 ## Changelog
-### 1.0.1 (2024-05-24)
+
+### 1.0.2 (2024-05-24)
 
 - improved failed login
 
