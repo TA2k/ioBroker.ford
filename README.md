@@ -17,6 +17,11 @@
 Adapter for FordPass
 
 ## Changelog
+
+### 1.0.0 (2024-05-24)
+
+- added new login flow and public api. All new Datapoints
+
 ### 0.2.3 (2024-05-17)
 
 - reverted domain ending setting to fix login
