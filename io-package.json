@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "0.2.3",
+    "version": "1.0.0",
     "news": {
+      "1.0.0": {
+        "en": "added new login flow and public api. All new Datapoints",
+        "de": "neue login-flow und public api implementiert. Datenpunkte sind alle neu.",
+        "ru": "добавлен новый логин поток и открытый api",
+        "pt": "adicionado novo fluxo de login e api público",
+        "nl": "toegevoegd nieuwe login flow en publieke api",
+        "fr": "a ajouté un nouveau flux de connexion et api public",
+        "it": "aggiunto nuovo flusso di login e pubblica api",
+        "es": "añadido nuevo flujo de inicio de sesión y api público",
+        "pl": "dodano nowy przepływ logowania i publiczne api",
+        "uk": "додано новий логінний потік і публічний api",
+        "zh-cn": "添加新登录流量和公用页"
+      },
       "0.2.3": {
         "en": "reverted domain ending setting to fix login",
         "de": "Domain Einstellung rückgängig gemacht um Login zu fixen",
@@ -40,12 +53,6 @@
       "0.1.4": {
         "en": "Improve 12V check. Move to 12.1V as new limit",
         "de": "Verbesserung der 12V-Überprüfung. 12.1V als neue Grenze"
-      },
-      "0.1.3": {
-        "en": "Move to new status fetching. Add 12V check."
-      },
-      "0.0.14": {
-        "en": "Improvements to prevent blocking from Ford"
       }
     },
     "title": "Ford",
