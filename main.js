@@ -515,8 +515,8 @@ class Ford extends utils.Adapter {
   async updateVehicleApi() {
     for (const vin of this.vinArray) {
       await this.requestClient({
-        method: 'post',
-        url: `https://api.mps.ford.com/api/fordconnect/v1/vehicles/${vin}/status`,
+        method: 'get',
+        url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}`,
         headers: {
           Accept: '*/*',
           'Content-Type': 'application/json',
