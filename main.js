@@ -79,7 +79,7 @@ class Ford extends utils.Adapter {
     if (this.config.clientId && this.config.secret) {
       if (auth && auth.val) {
         this.session = JSON.parse(auth.val);
-        this.refreshTokenApi();
+        await this.refreshTokenApi();
       } else {
         this.log.info('Found clientID start API Login');
         if (!this.config.codeUrl) {
@@ -888,35 +888,56 @@ class Ford extends utils.Adapter {
           this.updateVehicles();
           return;
         }
+        let headers;
+        let url;
+        let data;
+        if (this.config.clientId) {
+          let action = command;
+          if (command === 'engine/start') {
+            action = state.val ? 'startEngine' : 'stopEngine';
+          }
+          if (command === 'doors/lock') {
+            action = state.val ? 'lock' : 'unlock';
+          }
 
-        await this.getAutonomToken();
-        if (!this.autonom) {
-          this.log.error('Failed to get autonom token');
-          return;
-        }
-        const headers = {
-          'content-type': 'application/json',
-          'application-id': this.appId,
-          accept: '*/*',
-          'x-dynatrace': this.dyna,
-          authorization: 'Bearer ' + this.autonom.access_token,
-          'user-agent': 'okhttp/4.10.0',
-        };
-        const url = 'https://api.autonomic.ai/v1/command/vehicles/' + vin + '/commands';
-        const data = {
-          properties: {},
-          tags: {},
-          type: '',
-          wakeUp: true,
-        };
-        if (command === 'status') {
-          data.type = 'statusRefresh';
-        }
-        if (command === 'engine/start') {
-          data.type = state.val ? 'remoteStart' : 'cancelRemoteStart';
-        }
-        if (command === 'doors/lock') {
-          data.type = state.val ? 'lock' : 'unlock';
+          url = 'https://api.mps.ford.com/api/fordconnect/v1/vehicles/' + vin + '/' + action;
+          headers = {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+            Authorization: 'Bearer ' + this.session.access_token,
+          };
+          data = {};
+        } else {
+          await this.getAutonomToken();
+          if (!this.autonom) {
+            this.log.error('Failed to get autonom token');
+            return;
+          }
+          headers = {
+            'content-type': 'application/json',
+            'application-id': this.appId,
+            accept: '*/*',
+            'x-dynatrace': this.dyna,
+            authorization: 'Bearer ' + this.autonom.access_token,
+            'user-agent': 'okhttp/4.10.0',
+          };
+          url = 'https://api.autonomic.ai/v1/command/vehicles/' + vin + '/commands';
+          data = {
+            properties: {},
+            tags: {},
+            type: '',
+            wakeUp: true,
+          };
+          if (command === 'status') {
+            data.type = 'statusRefresh';
+          }
+          if (command === 'engine/start') {
+            data.type = state.val ? 'remoteStart' : 'cancelRemoteStart';
+          }
+          if (command === 'doors/lock') {
+            data.type = state.val ? 'lock' : 'unlock';
+          }
         }
         await this.requestClient({
           method: 'post',
@@ -925,7 +946,7 @@ class Ford extends utils.Adapter {
           data: data,
         })
           .then((res) => {
-            this.log.debug(JSON.stringify(res.data));
+            this.log.info(JSON.stringify(res.data));
             return res.data;
           })
           .catch((error) => {
@@ -937,7 +958,11 @@ class Ford extends utils.Adapter {
           });
         clearTimeout(this.refreshTimeout);
         this.refreshTimeout = setTimeout(async () => {
-          await this.updateVehicles();
+          if (this.config.clientId) {
+            await this.updateVehicleApi();
+          } else {
+            await this.updateVehicles();
+          }
         }, 10 * 1000);
       } else {
         // const resultDict = { chargingStatus: "CHARGE_NOW", doorLockState: "DOOR_LOCK" };
