@@ -87,7 +87,7 @@ class Ford extends utils.Adapter {
           this.log.warn('Please connect your car with the FordPass API and copy the last Url in the settings');
           this.log.warn(
             'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
-              this.config.clientId
+              this.config.clientId,
           );
           const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
           const obj = await this.getForeignObjectAsync(adapterConfig);
@@ -206,9 +206,17 @@ class Ford extends utils.Adapter {
         });
         await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
       })
-      .catch((error) => {
-        this.log.error('Failed to get token');
-        this.log.error("Delete auth state object and restart the adapter. Don't forget to set the codeUrl in the settings");
+      .catch(async (error) => {
+        this.log.error('Failed to get token. Please restart the adapter and do a new login');
+        await this.delObjectAsync('auth');
+        const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
+        const obj = await this.getForeignObjectAsync(adapterConfig);
+        if (obj) {
+          obj.native.connectUrl = '';
+          await this.setForeignObjectAsync(adapterConfig, obj);
+        } else {
+          this.log.error('no Adapterconfig found');
+        }
         this.log.error(error);
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
@@ -222,7 +230,10 @@ class Ford extends utils.Adapter {
     const loginForm = await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
-      url: 'https://login.ford.' + this.currentDomain + '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
+      url:
+        'https://login.ford.' +
+        this.currentDomain +
+        '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize',
       headers: {
         'user-agent':
           'Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -275,7 +286,8 @@ class Ford extends utils.Adapter {
         'Accept-Language': 'en-GB,en;q=0.9',
         'Sec-Fetch-Mode': 'cors',
         'Content-Type': 'text/plain;charset=UTF-8',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15',
         Referer:
           'https://login.ford.' +
           this.currentDomain +

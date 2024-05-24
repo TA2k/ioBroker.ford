@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "news": {
-      "1.0.0": {
+      "1.0.1": {
         "en": "added new login flow and public api. All new Datapoints",
         "de": "neue login-flow und public api implementiert. Datenpunkte sind alle neu.",
         "ru": "добавлен новый логин поток и открытый api",
