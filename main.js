@@ -84,7 +84,7 @@ class Ford extends utils.Adapter {
         this.log.info('Found clientID start API Login');
         if (!this.config.codeUrl) {
           this.log.error('Code URL missing');
-          this.log.warn('Please connect your car with the FordPass API and copy the last Url in the settings');
+          this.log.warn('Please open the url and select your car. Copy the last Url with https://localhost:3000 in the adapter settings');
           this.log.warn(
             'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
               this.config.clientId,
@@ -218,8 +218,12 @@ class Ford extends utils.Adapter {
           this.log.error('no Adapterconfig found');
         }
         this.log.error(error);
+
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
+          if (error.response.data.error_description && error.response.data.error_description.includes('grant has expired')) {
+            this.log.error('The code url is too old. Please provide a new one');
+          }
         }
       });
   }
