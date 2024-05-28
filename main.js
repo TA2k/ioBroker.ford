@@ -504,7 +504,8 @@ class Ford extends utils.Adapter {
             { command: 'status', name: 'True = Request Status Update' },
             { command: 'refresh', name: 'True = Refresh Status' },
           ];
-          remoteArray.forEach((remote) => {
+
+          for (const remote of remoteArray) {
             this.setObjectNotExists(vin + '.remote.' + remote.command, {
               type: 'state',
               common: {
@@ -516,7 +517,40 @@ class Ford extends utils.Adapter {
               },
               native: {},
             });
-          });
+          }
+
+          this.requestClient({
+            method: 'get',
+            url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/vin`,
+            headers: {
+              Accept: '*/*',
+              'Content-Type': 'application/json',
+              'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+              Authorization: 'Bearer ' + this.session.access_token,
+            },
+          })
+            .then(async (res) => {
+              this.log.debug(JSON.stringify(res.data));
+              await this.extendObjectAsync(vin + '.vin', {
+                type: 'state',
+                common: {
+                  name: 'VIN',
+                  type: 'string',
+                  role: 'value',
+                  read: true,
+                  write: false,
+                },
+                native: {},
+              });
+              this.setState(vin + '.vin', res.data.vin, true);
+            })
+            .catch((error) => {
+              this.log.error('Failed to get vin');
+              this.log.error(error);
+              if (error.response) {
+                this.log.error(JSON.stringify(error.response.data));
+              }
+            });
         }
       })
       .catch((error) => {
