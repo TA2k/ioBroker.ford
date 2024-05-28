@@ -500,6 +500,7 @@ class Ford extends utils.Adapter {
           this.json2iob.parse(vin + '.general', vehicle);
           const remoteArray = [
             { command: 'engine/start', name: 'True = Start, False = Stop' },
+            { command: 'charge/start', name: 'True = Start, False = Stop' },
             { command: 'doors/lock', name: 'True = Lock, False = Unlock' },
             { command: 'status', name: 'True = Request Status Update' },
             { command: 'refresh', name: 'True = Refresh Status' },
@@ -945,6 +946,9 @@ class Ford extends utils.Adapter {
           let action = command;
           if (command === 'engine/start') {
             action = state.val ? 'startEngine' : 'stopEngine';
+          }
+          if (command === 'charge/start') {
+            action = state.val ? 'startCharge' : 'stopCharge';
           }
           if (command === 'doors/lock') {
             action = state.val ? 'lock' : 'unlock';
