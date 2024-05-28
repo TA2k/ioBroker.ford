@@ -451,7 +451,7 @@ class Ford extends utils.Adapter {
     await this.requestClient({
       method: 'get',
       maxBodyLength: Infinity,
-      url: 'https://api.mps.ford.com/api/fordconnect/v2/vehicles',
+      url: 'https://api.mps.ford.com/api/fordconnect/v3/vehicles',
       headers: {
         Accept: 'application/json',
         'Content-Type': 'application/json',
