@@ -78,8 +78,15 @@ class Ford extends utils.Adapter {
     const auth = await this.getStateAsync('auth');
     if (this.config.clientId && this.config.secret) {
       if (auth && auth.val) {
-        this.session = JSON.parse(auth.val);
-        await this.refreshTokenApi();
+        try {
+          // @ts-ignore
+          this.session = JSON.parse(auth.val);
+          await this.refreshTokenApi();
+        } catch (error) {
+          this.log.error('Failed to parse auth');
+          // @ts-ignore
+          this.log.error(error);
+        }
       } else {
         this.log.info('Found clientID start API Login');
         if (!this.config.codeUrl) {
@@ -155,7 +162,7 @@ class Ford extends utils.Adapter {
           common: {
             name: 'auth',
             type: 'string',
-            role: 'state',
+            role: 'json',
             read: true,
             write: true,
           },
@@ -938,9 +945,9 @@ class Ford extends utils.Adapter {
     try {
       this.setState('info.connection', false, true);
       clearTimeout(this.refreshTimeout);
-      clearTimeout(this.reLoginTimeout);
-      clearTimeout(this.refreshTokenTimeout);
-      clearInterval(this.updateInterval);
+      this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
+      this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
+      this.updateInterval && clearInterval(this.updateInterval);
       clearInterval(this.refreshTokenInterval);
       callback();
     } catch (e) {
