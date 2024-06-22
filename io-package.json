@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "news": {
+      "1.0.3": {
+        "en": "improve help text",
+        "de": "hilfetext verbessern",
+        "ru": "улучшить текст справки",
+        "pt": "melhorar o texto de ajuda",
+        "nl": "helptekst verbeteren",
+        "fr": "améliorer le texte d'aide",
+        "it": "migliorare il testo di aiuto",
+        "es": "mejorar el texto de ayuda",
+        "pl": "poprawić tekst pomocy",
+        "uk": "покращити текст",
+        "zh-cn": "改进帮助文本"
+      },
       "1.0.2": {
         "en": "added new login flow and public api. All new Datapoints",
         "de": "neue login-flow und public api implementiert. Datenpunkte sind alle neu.",
@@ -80,8 +93,13 @@
       "pl": "Adapter do FordPass",
       "zh-cn": "FordPass 适配器"
     },
-    "authors": ["TA2k <tombox2020@gmail.com>"],
-    "keywords": ["ford", "FordPass"],
+    "authors": [
+      "TA2k <tombox2020@gmail.com>"
+    ],
+    "keywords": [
+      "ford",
+      "FordPass"
+    ],
     "license": "MIT",
     "platform": "Javascript/Node.js",
     "main": "main.js",
@@ -112,8 +130,14 @@
       }
     ]
   },
-  "encryptedNative": ["password", "secret"],
-  "protectedNative": ["password", "secret"],
+  "encryptedNative": [
+    "password",
+    "secret"
+  ],
+  "protectedNative": [
+    "password",
+    "secret"
+  ],
   "native": {
     "username": "",
     "password": "",
