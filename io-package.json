@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "news": {
+      "1.0.4": {
+        "en": "Add location update option to reduce update requests",
+        "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
+        "ru": "Добавить вариант обновления местоположения для сокращения запросов на обновление",
+        "pt": "Adicionar opção de atualização de local para reduzir pedidos de atualização",
+        "nl": "Voeg locatie-update optie toe om updateverzoeken te verminderen",
+        "fr": "Ajouter une option de mise à jour pour réduire les demandes de mise à jour",
+        "it": "Aggiungere l'opzione di aggiornamento della posizione per ridurre le richieste di aggiornamento",
+        "es": "Agregar la opción de actualización de ubicación para reducir las solicitudes de actualización",
+        "pl": "Dodaj opcję aktualizacji lokalizacji w celu ograniczenia żądań aktualizacji",
+        "uk": "Додати варіант оновлення місця для зменшення запитів оновлення",
+        "zh-cn": "添加位置更新选项以减少更新请求"
+      },
       "1.0.3": {
         "en": "improve help text",
         "de": "hilfetext verbessern",
@@ -62,10 +75,6 @@
       "0.1.5": {
         "en": "Change 12V Check. Will only stops force Updates",
         "de": "Änderung der 12V-Überprüfung. Stoppt nur erzwungene Updates"
-      },
-      "0.1.4": {
-        "en": "Improve 12V check. Move to 12.1V as new limit",
-        "de": "Verbesserung der 12V-Überprüfung. 12.1V als neue Grenze"
       }
     },
     "title": "Ford",
@@ -93,8 +102,13 @@
       "pl": "Adapter do FordPass",
       "zh-cn": "FordPass 适配器"
     },
-    "authors": ["TA2k <tombox2020@gmail.com>"],
-    "keywords": ["ford", "FordPass"],
+    "authors": [
+      "TA2k <tombox2020@gmail.com>"
+    ],
+    "keywords": [
+      "ford",
+      "FordPass"
+    ],
     "license": "MIT",
     "platform": "Javascript/Node.js",
     "main": "main.js",
@@ -125,8 +139,14 @@
       }
     ]
   },
-  "encryptedNative": ["password", "secret"],
-  "protectedNative": ["password", "secret"],
+  "encryptedNative": [
+    "password",
+    "secret"
+  ],
+  "protectedNative": [
+    "password",
+    "secret"
+  ],
   "native": {
     "username": "",
     "password": "",
