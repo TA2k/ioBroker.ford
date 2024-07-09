@@ -93,13 +93,8 @@
       "pl": "Adapter do FordPass",
       "zh-cn": "FordPass 适配器"
     },
-    "authors": [
-      "TA2k <tombox2020@gmail.com>"
-    ],
-    "keywords": [
-      "ford",
-      "FordPass"
-    ],
+    "authors": ["TA2k <tombox2020@gmail.com>"],
+    "keywords": ["ford", "FordPass"],
     "license": "MIT",
     "platform": "Javascript/Node.js",
     "main": "main.js",
@@ -130,14 +125,8 @@
       }
     ]
   },
-  "encryptedNative": [
-    "password",
-    "secret"
-  ],
-  "protectedNative": [
-    "password",
-    "secret"
-  ],
+  "encryptedNative": ["password", "secret"],
+  "protectedNative": ["password", "secret"],
   "native": {
     "username": "",
     "password": "",
@@ -147,7 +136,8 @@
     "codeUrl": "",
     "interval": 5,
     "forceUpdate": true,
-    "skip12VCheck": false
+    "skip12VCheck": false,
+    "locationUpdate": true
   },
   "objects": [],
   "instanceObjects": [
