@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "news": {
+      "1.0.5": {
+        "en": "Add location update option to reduce update requests",
+        "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
+        "ru": "Добавить вариант обновления местоположения для сокращения запросов на обновление",
+        "pt": "Adicionar opção de atualização de local para reduzir pedidos de atualização",
+        "nl": "Voeg locatie-update optie toe om updateverzoeken te verminderen",
+        "fr": "Ajouter une option de mise à jour pour réduire les demandes de mise à jour",
+        "it": "Aggiungere l'opzione di aggiornamento della posizione per ridurre le richieste di aggiornamento",
+        "es": "Agregar la opción de actualización de ubicación para reducir las solicitudes de actualización",
+        "pl": "Dodaj opcję aktualizacji lokalizacji w celu ograniczenia żądań aktualizacji",
+        "uk": "Додати варіант оновлення місця для зменшення запитів оновлення",
+        "zh-cn": "添加位置更新选项以减少更新请求"
+      },
       "1.0.4": {
         "en": "Add location update option to reduce update requests",
         "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
@@ -71,10 +84,6 @@
       "0.2.0": {
         "en": "Fix Login",
         "de": "Login Fix"
-      },
-      "0.1.5": {
-        "en": "Change 12V Check. Will only stops force Updates",
-        "de": "Änderung der 12V-Überprüfung. Stoppt nur erzwungene Updates"
       }
     },
     "title": "Ford",

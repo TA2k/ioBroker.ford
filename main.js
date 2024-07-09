@@ -590,6 +590,10 @@ class Ford extends utils.Adapter {
           this.json2iob.parse(vin + '.status', res.data);
         })
         .catch((error) => {
+          if (error.response && error.response.status === 429) {
+            this.log.info('Rate limit reached. Only one request per 5-15min are allowed');
+            return;
+          }
           this.log.error('Failed to update vehicle');
           this.log.error(error);
           if (error.response) {
@@ -612,6 +616,10 @@ class Ford extends utils.Adapter {
             this.json2iob.parse(vin + '.location', res.data);
           })
           .catch((error) => {
+            if (error.response && error.response.status === 429) {
+              this.log.info('Rate limit reached. Only one request per 5-15min are allowed');
+              return;
+            }
             this.log.error('Failed to update vehicle location');
             this.log.error(error);
             if (error.response) {
