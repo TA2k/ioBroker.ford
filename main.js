@@ -596,27 +596,29 @@ class Ford extends utils.Adapter {
             this.log.error(JSON.stringify(error.response.data));
           }
         });
-      await this.requestClient({
-        method: 'get',
-        url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/location`,
-        headers: {
-          Accept: '*/*',
-          'Content-Type': 'application/json',
-          'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
-          Authorization: 'Bearer ' + this.session.access_token,
-        },
-      })
-        .then((res) => {
-          this.log.debug(JSON.stringify(res.data));
-          this.json2iob.parse(vin + '.location', res.data);
+      if (this.config.locationUpdate) {
+        await this.requestClient({
+          method: 'get',
+          url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/location`,
+          headers: {
+            Accept: '*/*',
+            'Content-Type': 'application/json',
+            'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+            Authorization: 'Bearer ' + this.session.access_token,
+          },
         })
-        .catch((error) => {
-          this.log.error('Failed to update vehicle location');
-          this.log.error(error);
-          if (error.response) {
-            this.log.error(JSON.stringify(error.response.data));
-          }
-        });
+          .then((res) => {
+            this.log.debug(JSON.stringify(res.data));
+            this.json2iob.parse(vin + '.location', res.data);
+          })
+          .catch((error) => {
+            this.log.error('Failed to update vehicle location');
+            this.log.error(error);
+            if (error.response) {
+              this.log.error(JSON.stringify(error.response.data));
+            }
+          });
+      }
     }
   }
   async getVehicles() {
