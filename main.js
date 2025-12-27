@@ -934,7 +934,7 @@ class Ford extends utils.Adapter {
 
     await this.requestClient({
       method: 'post',
-      url: 'https://api.mps.ford.com/api/token/v2/cat-with-refresh-token',
+      url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
       headers: {
         accept: '*/*',
         'content-type': 'application/json',
