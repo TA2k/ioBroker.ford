@@ -148,21 +148,10 @@
       }
     ]
   },
-  "encryptedNative": [
-    "password",
-    "secret"
-  ],
-  "protectedNative": [
-    "password",
-    "secret"
-  ],
+  "encryptedNative": [],
+  "protectedNative": [],
   "native": {
-    "username": "",
-    "password": "",
-    "clientId": "",
-    "secret": "",
-    "connectUrl": "",
-    "codeUrl": "",
+    "v2_codeUrl": "",
     "interval": 5,
     "forceUpdate": true,
     "skip12VCheck": false,
