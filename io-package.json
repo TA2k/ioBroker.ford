@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "news": {
-      "1.1.0": {
+      "1.1.1": {
         "en": "fix login flow",
         "de": "fehlerbehebung",
         "ru": "фиксировать логиновый поток",
@@ -120,13 +120,8 @@
       "pl": "Adapter do FordPass",
       "zh-cn": "FordPass 适配器"
     },
-    "authors": [
-      "TA2k <tombox2020@gmail.com>"
-    ],
-    "keywords": [
-      "ford",
-      "FordPass"
-    ],
+    "authors": ["TA2k <tombox2020@gmail.com>"],
+    "keywords": ["ford", "FordPass"],
     "license": "MIT",
     "platform": "Javascript/Node.js",
     "main": "main.js",

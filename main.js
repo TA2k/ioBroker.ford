@@ -941,7 +941,7 @@ class Ford extends utils.Adapter {
         accept: '*/*',
         'content-type': 'application/json',
         'application-id': this.appId,
-        'user-agent': 'okhttp/4.11.0',
+        'user-agent': 'okhttp/4.12.0',
         'accept-language': 'de-de',
       },
       data: { refresh_token: this.session.refresh_token },
