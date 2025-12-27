@@ -34,9 +34,8 @@ class Ford extends utils.Adapter {
     this.appId = '667D773E-1BDC-4139-8AD0-2B16474E8DC7';
     this.dyna = 'MT_3_30_2352378557_3-0_' + uuidv4() + '_0_789_87';
     this.cookieJar = new tough.CookieJar();
-    this.codeVerifier = null;
 
-    // v2 OAuth config
+    // v2 OAuth config with static PKCE (simpler but less secure - acceptable for local adapter)
     this.v2Config = {
       oauth_id: '4566605f-43a7-400a-946e-89cc9fdb0bd7',
       v2_clientId: '09852200-05fd-41f6-8c21-d36d3497dc64',
@@ -44,6 +43,8 @@ class Ford extends utils.Adapter {
       appId: '667D773E-1BDC-4139-8AD0-2B16474E8DC7',
       locale: 'de-DE',
       login_url: 'https://login.ford.de',
+      code_verifier: 'htjK44Ue3q-G7ZPg09D4htKe529ZINkRt_bBehOS1Z4',
+      code_challenge: 'htjK44Ue3q-G7ZPg09D4htKe529ZINkRt_bBehOS1Z4',
     };
 
     // const adapterConfig = {
@@ -1002,34 +1003,18 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Generate PKCE code challenge for v2 OAuth
-   */
-  generateCodeChallenge() {
-    const verifier = crypto.randomBytes(32).toString('base64url');
-    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-
-    return {
-      code_verifier: verifier,
-      code_challenge: challenge,
-      code_challenge_method: 'S256',
-    };
-  }
-
-  /**
    * Generate FordConnect 2.0 Authorization URL
+   * Uses static PKCE values for simplicity (code can only be used once anyway)
    */
   generateV2AuthUrl() {
-    const pkce = this.generateCodeChallenge();
-    this.codeVerifier = pkce.code_verifier;
-
     const authUrl = `${this.v2Config.login_url}/${this.v2Config.oauth_id}/B2C_1A_SignInSignUp_${this.v2Config.locale}/oauth2/v2.0/authorize`;
 
     const params = new URLSearchParams({
       redirect_uri: this.v2Config.redirect_uri,
       response_type: 'code',
       max_age: '3600',
-      code_challenge: pkce.code_challenge,
-      code_challenge_method: pkce.code_challenge_method,
+      code_challenge: this.v2Config.code_challenge,
+      code_challenge_method: 'S256',
       scope: ` ${this.v2Config.v2_clientId} openid`,
       client_id: this.v2Config.v2_clientId,
       ui_locales: this.v2Config.locale,
@@ -1055,7 +1040,7 @@ class Ford extends utils.Adapter {
         redirect_uri: this.v2Config.redirect_uri,
         resource: '',
         code: code,
-        code_verifier: this.codeVerifier,
+        code_verifier: this.v2Config.code_verifier,
       };
 
       const response = await this.requestClient({
