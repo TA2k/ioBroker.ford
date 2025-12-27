@@ -43,8 +43,8 @@ class Ford extends utils.Adapter {
       appId: '667D773E-1BDC-4139-8AD0-2B16474E8DC7',
       locale: 'de-DE',
       login_url: 'https://login.ford.de',
-      code_verifier: 'htjK44Ue3q-G7ZPg09D4htKe529ZINkRt_bBehOS1Z4',
-      code_challenge: 'htjK44Ue3q-G7ZPg09D4htKe529ZINkRt_bBehOS1Z4',
+      code_verifier: 'CIADHQqnmEoma2SDA4edG46FlWYZQrQrOSNIuL8fk7E',
+      code_challenge: 'zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg',
     };
 
     // const adapterConfig = {
