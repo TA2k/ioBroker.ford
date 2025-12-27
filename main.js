@@ -108,7 +108,7 @@ class Ford extends utils.Adapter {
                 const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
                 const obj = await this.getForeignObjectAsync(adapterConfig);
                 if (obj) {
-                  obj.native.v2CodeUrl = '';
+                  obj.native.v2_codeUrl = '';
                   await this.setForeignObjectAsync(adapterConfig, obj);
                 }
               }, 3000);
