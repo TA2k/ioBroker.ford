@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.0.5",
+    "version": "1.1.0",
     "news": {
+      "1.1.0": {
+        "en": "fix login flow",
+        "de": "fehlerbehebung",
+        "ru": "фиксировать логиновый поток",
+        "pt": "corrigir fluxo de login",
+        "nl": "fix login stroom",
+        "fr": "correction du flux de connexion",
+        "it": "correzione del flusso di login",
+        "es": "corrección de flujo de inicio",
+        "pl": "naprawić przepływ logowania",
+        "uk": "фіксувати потік логіна",
+        "zh-cn": "固定登录流量"
+      },
       "1.0.5": {
         "en": "Add location update option to reduce update requests",
         "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
@@ -80,10 +93,6 @@
         "pl": "stałe logowanie i dodawane domeny kończące się ustawieniami",
         "uk": "виправлений логін і додано закінчення домену в налаштуваннях",
         "zh-cn": "在设置中固定登录和添加域结束"
-      },
-      "0.2.0": {
-        "en": "Fix Login",
-        "de": "Login Fix"
       }
     },
     "title": "Ford",
