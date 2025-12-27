@@ -103,8 +103,8 @@ class Ford extends utils.Adapter {
             // Clear the code URL after successful exchange
             this.log.info('Code exchanged for token successfully.');
             if (this.config.v2_codeUrl !== '') {
-              this.log.info('Clearing v2 Code URL and restart Adapter.');
               this.setTimeout(async () => {
+                this.log.info('Clearing v2 Code URL and restart Adapter.');
                 const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
                 const obj = await this.getForeignObjectAsync(adapterConfig);
                 if (obj) {
@@ -166,6 +166,8 @@ class Ford extends utils.Adapter {
       this.updateInterval = setInterval(async () => {
         await this.updateVehicles();
       }, this.config.interval * 60 * 1000);
+      // check expires_in exist
+      this.session.expires_in = this.session.expires_in || 1800;
       this.refreshTokenInterval = setInterval(() => {
         this.refreshToken();
       }, (this.session.expires_in - 120) * 1000);
