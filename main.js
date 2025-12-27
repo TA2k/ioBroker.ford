@@ -101,11 +101,17 @@ class Ford extends utils.Adapter {
 
           if (success) {
             // Clear the code URL after successful exchange
-            const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
-            const obj = await this.getForeignObjectAsync(adapterConfig);
-            if (obj) {
-              obj.native.v2CodeUrl = '';
-              await this.setForeignObjectAsync(adapterConfig, obj);
+            this.log.info('Code exchanged for token successfully.');
+            if (this.config.v2_codeUrl !== '') {
+              this.log.info('Clearing v2 Code URL and restart Adapter.');
+              this.setTimeout(async () => {
+                const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
+                const obj = await this.getForeignObjectAsync(adapterConfig);
+                if (obj) {
+                  obj.native.v2CodeUrl = '';
+                  await this.setForeignObjectAsync(adapterConfig, obj);
+                }
+              }, 3000);
             }
           } else {
             this.log.error('Failed to exchange code for token');
