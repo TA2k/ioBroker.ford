@@ -669,6 +669,8 @@ class Ford extends utils.Adapter {
   }
   async getVehicles() {
     const headers = {
+      'Accept-Encoding': 'gzip',
+      Connection: 'Keep-Alive',
       'content-type': 'application/json',
       'application-id': this.appId,
       accept: '*/*',
@@ -677,7 +679,7 @@ class Ford extends utils.Adapter {
       locale: 'DE-DE',
       'accept-language': 'de-de',
       countrycode: 'DEU',
-      'user-agent': 'okhttp/4.9.2',
+      'user-agent': 'okhttp/4.12.0',
     };
     await this.requestClient({
       method: 'post',
@@ -802,7 +804,7 @@ class Ford extends utils.Adapter {
       accept: '*/*',
       'x-dynatrace': this.dyna,
       authorization: 'Bearer ' + this.autonom.access_token,
-      'user-agent': 'okhttp/4.10.0',
+      'user-agent': 'okhttp/4.12.0',
     };
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
