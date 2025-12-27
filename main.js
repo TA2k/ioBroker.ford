@@ -83,7 +83,7 @@ class Ford extends utils.Adapter {
 
     this.subscribeStates('*');
 
-    const auth = await this.getStateAsync('auth');
+    const auth = await this.getStateAsync('authV2');
 
     // Check if user provided code URL for v2 OAuth
     if (this.config.v2_codeUrl && this.config.v2_codeUrl.startsWith('fordapp://userauthorized')) {
@@ -123,10 +123,11 @@ class Ford extends utils.Adapter {
         this.log.info('Using existing session, refreshing token...');
         await this.refreshToken();
       } catch (error) {
-        this.log.error('Failed to parse auth');
+        this.log.error('Failed to parse authV2 state');
         if (error instanceof Error) {
           this.log.error(error.message);
         }
+        this.log.warn('Please delete the authV2 state and re-authenticate via adapter settings');
       }
     } else {
       // No code URL and no existing session - generate auth URL
@@ -183,10 +184,10 @@ class Ford extends utils.Adapter {
         this.session = res.data;
         this.setState('info.connection', true, true);
         this.log.debug('Refresh Token successful');
-        await this.extendObjectAsync('auth', {
+        await this.extendObjectAsync('authV2', {
           type: 'state',
           common: {
-            name: 'auth',
+            name: 'authV2',
             type: 'string',
             role: 'json',
             read: true,
@@ -194,7 +195,7 @@ class Ford extends utils.Adapter {
           },
           native: {},
         });
-        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
       })
       .catch((error) => {
         this.log.error('Failed to refresh token');
@@ -202,6 +203,7 @@ class Ford extends utils.Adapter {
         if (error.response) {
           this.log.error(JSON.stringify(error.response.data));
         }
+        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
       });
   }
   async loginApi() {
@@ -226,10 +228,10 @@ class Ford extends utils.Adapter {
         this.session = res.data;
         this.setState('info.connection', true, true);
         this.log.info('LoginAPI successful');
-        await this.extendObjectAsync('auth', {
+        await this.extendObjectAsync('authV2', {
           type: 'state',
           common: {
-            name: 'auth',
+            name: 'authV2',
             type: 'string',
             role: 'state',
             read: true,
@@ -237,11 +239,12 @@ class Ford extends utils.Adapter {
           },
           native: {},
         });
-        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
       })
       .catch(async (error) => {
         this.log.error('Failed to get token. Please restart the adapter and do a new login');
-        await this.delObjectAsync('auth');
+        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
+        await this.delObjectAsync('authV2');
         const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
         const obj = await this.getForeignObjectAsync(adapterConfig);
         if (obj) {
@@ -942,11 +945,11 @@ class Ford extends utils.Adapter {
         this.log.info('Token refresh successful');
         this.log.debug(`Token expires in: ${Math.floor(this.session.expires_in / 60)} minutes`);
 
-        // Save updated session to auth state
-        await this.extendObjectAsync('auth', {
+        // Save updated session to authV2 state
+        await this.extendObjectAsync('authV2', {
           type: 'state',
           common: {
-            name: 'auth',
+            name: 'authV2',
             type: 'string',
             role: 'json',
             read: true,
@@ -954,7 +957,7 @@ class Ford extends utils.Adapter {
           },
           native: {},
         });
-        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
 
         return res.data;
       })
@@ -965,6 +968,7 @@ class Ford extends utils.Adapter {
 
         // Token refresh failed - user needs to re-authenticate
         this.log.error('Token refresh failed. Please re-authenticate via adapter settings.');
+        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
         this.log.error('The adapter will try again in 5 minutes...');
 
         this.reLoginTimeout = setTimeout(() => {
@@ -1090,10 +1094,10 @@ class Ford extends utils.Adapter {
       this.log.info('Token exchange successful');
       this.log.info(`Token expires in: ${Math.floor(this.sessionV2.expires_in / 60)} minutes`);
 
-      await this.extendObjectAsync('auth', {
+      await this.extendObjectAsync('authV2', {
         type: 'state',
         common: {
-          name: 'auth',
+          name: 'authV2',
           type: 'string',
           role: 'json',
           read: true,
@@ -1101,7 +1105,7 @@ class Ford extends utils.Adapter {
         },
         native: {},
       });
-      await this.setStateAsync('auth', { val: JSON.stringify(this.sessionV2), ack: true });
+      await this.setStateAsync('authV2', { val: JSON.stringify(this.sessionV2), ack: true });
 
       return true;
     } catch (error) {
