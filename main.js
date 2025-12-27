@@ -1129,7 +1129,7 @@ class Ford extends utils.Adapter {
       this.updateInterval && clearInterval(this.updateInterval);
       clearInterval(this.refreshTokenInterval);
       callback();
-    } catch (e) {
+    } catch {
       callback();
     }
   }
