@@ -76,57 +76,40 @@
       </div>
 
       <div class="row">
-        <div class="col s6 input-field">
-          <input type="text" class="value" id="username" />
-          <label for="username" class="translate">FordPass App Email</label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col s6 input-field">
-          <input type="password" class="value" id="password" />
-          <label for="password" class="translate">FordPass App Password</label>
-        </div>
-      </div>
-      <div class="row">
-        <h5 style="color: red">
-          <a
-            href="https://ecmarketplaceprod.b2clogin.com/ecmarketplaceprod.onmicrosoft.com/B2C_1_DMARK_SignUpIn/oauth2/v2.0/authorize?response_type=code&response_mode=query&client_id=0d9f69b8-3b80-4f89-ac7b-ac5666d59cdd&redirect_uri=https://api.mps.ford.com/dmapiresource/v1/callback/login&scope=0d9f69b8-3b80-4f89-ac7b-ac5666d59cdd%20openid%20offline_access"
-            target="_blank"
-            class="translate"
-            >NEW API: CLICK HERE TO get a Ford API ClientId and Secret</a
-          >
-        </h5>
+        <h3 class="translate">FordConnect 2.0 OAuth</h3>
+        <p>
+          The adapter will display a URL in the log when started without authentication. Follow the instructions below to complete the OAuth
+          login.
+        </p>
       </div>
 
       <div class="row">
-        <div class="col s6 input-field">
-          <input type="text" class="value" id="clientId" />
-          <label for="clientid" class="translate">Ford API ClientId</label>
+        <div class="col s12">
+          <h5>Login Instructions:</h5>
+          <ol>
+            <li><strong>IMPORTANT: Press F12 BEFORE opening the login URL</strong> to open Developer Tools</li>
+            <li>Go to the Network tab in Developer Tools</li>
+            <li>Copy the OAuth URL from the adapter log and paste it into your browser</li>
+            <li>Log in with your Ford account</li>
+            <li>After redirect, the browser will show "Cannot open page"</li>
+            <li>Copy the complete URL from the browser address bar (starts with: fordapp://userauthorized/?code=)</li>
+            <li>Paste it in the field below and save</li>
+            <li>Restart the adapter</li>
+          </ol>
+          <p>
+            <img src="img/copyCodeUrl.png" alt="How to copy the code URL" style="max-width: 100%; border: 1px solid #ccc; margin-top: 10px" />
+          </p>
         </div>
       </div>
+
       <div class="row">
-        <div class="col s6 input-field">
-          <input type="password" class="value" id="secret" />
-          <label for="secret" class="translate">Ford API Secret</label>
-        </div>
-      </div>
-      <div class="row">
-        <h6 class="translate">
-          Enter ClientID + Secret, Press Save. Reload this settings page and then open the url below.. Login, select your car and press
-          Finish. You will receive an error. Copy the complete url (https://localhost:3000.....) from your browser in the 'Url after Finish'
-          field below. Press Save again.
-        </h6>
-      </div>
-      <div class="row">
-        <div class="col s6 input-field">
-          <input type="text" class="value" id="connectUrl" />
-          <label for="connectUrl" class="translate">Connect Url to get next Url</label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col s6 input-field">
-          <input type="text" class="value" id="codeUrl" placeholder="https://localhost:3000/?state=123&code=...." />
-          <label for="codeUrl" class="translate">Url after Finish</label>
+        <div class="col s12 input-field">
+          <input type="text" class="value" id="v2_codeUrl" placeholder="fordapp://userauthorized/?code=..." />
+          <label for="v2_codeUrl" class="translate">Code URL (paste from browser after login)</label>
+          <span class="helper-text">
+            Paste the complete URL starting with "fordapp://userauthorized/?code=" here and save. The adapter will exchange this for an
+            access token on next restart.
+          </span>
         </div>
       </div>
       <div class="row">

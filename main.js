@@ -28,10 +28,23 @@ class Ford extends utils.Adapter {
     this.on('unload', this.onUnload.bind(this));
     this.vinArray = [];
     this.session = {};
+    this.sessionV2 = {};
+    this.autonomTokenV2 = null;
     this.ignoredAPI = [];
     this.appId = '667D773E-1BDC-4139-8AD0-2B16474E8DC7';
     this.dyna = 'MT_3_30_2352378557_3-0_' + uuidv4() + '_0_789_87';
     this.cookieJar = new tough.CookieJar();
+    this.codeVerifier = null;
+
+    // v2 OAuth config
+    this.v2Config = {
+      oauth_id: '4566605f-43a7-400a-946e-89cc9fdb0bd7',
+      v2_clientId: '09852200-05fd-41f6-8c21-d36d3497dc64',
+      redirect_uri: 'fordapp://userauthorized',
+      appId: '667D773E-1BDC-4139-8AD0-2B16474E8DC7',
+      locale: 'de-DE',
+      login_url: 'https://login.ford.de',
+    };
 
     // const adapterConfig = {
     //   agent: new http2.Agent({
@@ -68,73 +81,86 @@ class Ford extends utils.Adapter {
       this.config.interval = 0.5;
     }
 
-    if (!this.config.username || !this.config.password) {
-      this.log.error('Username or password missing');
-      return;
-    }
-    this.currentDomain = 'com';
     this.subscribeStates('*');
 
     const auth = await this.getStateAsync('auth');
-    if (this.config.clientId && this.config.secret) {
-      if (auth && auth.val) {
-        try {
-          // @ts-ignore
-          this.session = JSON.parse(auth.val);
-          await this.refreshTokenApi();
-        } catch (error) {
-          this.log.error('Failed to parse auth');
-          // @ts-ignore
-          this.log.error(error);
-        }
-      } else {
-        this.log.info('Found clientID start API Login');
-        if (!this.config.codeUrl) {
-          this.log.error('Code URL missing');
-          this.log.warn('Please open the url and select your car. Copy the last Url with https://localhost:3000 in the adapter settings');
-          this.log.warn(
-            'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
-              this.config.clientId,
-          );
-          const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
-          const obj = await this.getForeignObjectAsync(adapterConfig);
-          if (obj) {
-            obj.native.connectUrl =
-              'https://fordconnect.cv.ford.com/common/login/?make=F&application_id=AFDC085B-377A-4351-B23E-5E1D35FB3700&response_type=code&state=123&redirect_uri=https%3A%2F%2Flocalhost%3A3000&scope=access&client_id=' +
-              this.config.clientId;
-            await this.setForeignObjectAsync(adapterConfig, obj);
-          } else {
-            this.log.error('no Adapterconfig found');
-          }
 
+    // Check if user provided code URL for v2 OAuth
+    if (this.config.v2_codeUrl && this.config.v2_codeUrl.startsWith('fordapp://userauthorized')) {
+      this.log.info('Found v2 Code URL, exchanging for token...');
+
+      // Extract code from fordapp:// URL
+      const urlParts = this.config.v2_codeUrl.split('?');
+      if (urlParts.length > 1) {
+        const params = qs.parse(urlParts[1]);
+        const code = params.code;
+
+        if (code && typeof code === 'string') {
+          const success = await this.exchangeCodeForTokenV2(code);
+
+          if (success) {
+            // Clear the code URL after successful exchange
+            const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
+            const obj = await this.getForeignObjectAsync(adapterConfig);
+            if (obj) {
+              obj.native.v2CodeUrl = '';
+              await this.setForeignObjectAsync(adapterConfig, obj);
+            }
+          } else {
+            this.log.error('Failed to exchange code for token');
+            return;
+          }
+        } else {
+          this.log.error('No code found in v2CodeUrl');
           return;
         }
-        await this.loginApi();
       }
-      if (this.session.access_token) {
-        await this.getVehiclesApi();
-        await this.updateVehicleApi();
-        this.updateInterval = setInterval(async () => {
-          await this.updateVehicleApi();
-        }, this.config.interval * 60 * 1000);
-        this.refreshTokenInterval = setInterval(() => {
-          this.refreshTokenApi();
-        }, (this.session.expires_in - 120) * 1000);
+    } else if (auth && auth.val && typeof auth.val === 'string') {
+      // Try to use existing session
+      try {
+        this.session = JSON.parse(auth.val);
+        this.sessionV2 = this.session;
+        this.log.info('Using existing session, refreshing token...');
+        await this.refreshToken();
+      } catch (error) {
+        this.log.error('Failed to parse auth');
+        if (error instanceof Error) {
+          this.log.error(error.message);
+        }
       }
     } else {
-      await this.login();
+      // No code URL and no existing session - generate auth URL
+      this.log.warn('========================================');
+      this.log.warn('FORD OAUTH 2.0 LOGIN REQUIRED');
+      this.log.warn('========================================');
+      this.log.warn('');
+      this.log.warn('Please follow these steps:');
+      this.log.warn('1. Open your browser Developer Tools (F12)');
+      this.log.warn('2. Go to the Network tab');
+      this.log.warn('3. Copy and paste this URL into your browser:');
+      this.log.warn('');
+      this.log.warn(this.generateV2AuthUrl());
+      this.log.warn('');
+      this.log.warn('4. Log in with your Ford account');
+      this.log.warn('5. After redirect, browser will show "Cannot open page"');
+      this.log.warn('6. COPY the complete URL from browser address bar (starts with: fordapp://userauthorized/?code=)');
+      this.log.warn('7. Paste it into the "v2 Code URL" field in adapter settings');
+      this.log.warn('8. Save and restart the adapter');
+      this.log.warn('');
+      this.log.warn('========================================');
+      return;
+    }
 
-      if (this.session.access_token) {
-        await this.getVehicles();
-        await this.cleanObjects();
+    if (this.session.access_token) {
+      await this.getVehicles();
+      await this.cleanObjects();
+      await this.updateVehicles();
+      this.updateInterval = setInterval(async () => {
         await this.updateVehicles();
-        this.updateInterval = setInterval(async () => {
-          await this.updateVehicles();
-        }, this.config.interval * 60 * 1000);
-        this.refreshTokenInterval = setInterval(() => {
-          this.refreshToken();
-        }, (this.session.expires_in - 120) * 1000);
-      }
+      }, this.config.interval * 60 * 1000);
+      this.refreshTokenInterval = setInterval(() => {
+        this.refreshToken();
+      }, (this.session.expires_in - 120) * 1000);
     }
   }
   async refreshTokenApi() {
@@ -894,10 +920,11 @@ class Ford extends utils.Adapter {
   }
 
   async refreshToken() {
+    this.log.debug('Refreshing access token...');
+
     await this.requestClient({
       method: 'post',
       url: 'https://api.mps.ford.com/api/token/v2/cat-with-refresh-token',
-
       headers: {
         accept: '*/*',
         'content-type': 'application/json',
@@ -907,20 +934,42 @@ class Ford extends utils.Adapter {
       },
       data: { refresh_token: this.session.refresh_token },
     })
-      .then((res) => {
+      .then(async (res) => {
         this.log.debug(JSON.stringify(res.data));
         this.session = res.data;
+        this.sessionV2 = res.data;
         this.setState('info.connection', true, true);
+        this.log.info('Token refresh successful');
+        this.log.debug(`Token expires in: ${Math.floor(this.session.expires_in / 60)} minutes`);
+
+        // Save updated session to auth state
+        await this.extendObjectAsync('auth', {
+          type: 'state',
+          common: {
+            name: 'auth',
+            type: 'string',
+            role: 'json',
+            read: true,
+            write: true,
+          },
+          native: {},
+        });
+        await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
+
         return res.data;
       })
       .catch((error) => {
-        this.log.error('refresh token failed');
+        this.log.error('Refresh token failed');
         this.log.error(error);
         error.response && this.log.error(JSON.stringify(error.response.data));
-        this.log.error('Start relogin in 1min');
+
+        // Token refresh failed - user needs to re-authenticate
+        this.log.error('Token refresh failed. Please re-authenticate via adapter settings.');
+        this.log.error('The adapter will try again in 5 minutes...');
+
         this.reLoginTimeout = setTimeout(() => {
-          this.login();
-        }, 1000 * 60 * 1);
+          this.refreshToken();
+        }, 1000 * 60 * 5);
       });
   }
   async cleanObjects() {
@@ -946,6 +995,126 @@ class Ford extends utils.Adapter {
     hash = hash.replace(/\+/g, '-').replace(/\//g, '_').replace(/==/g, '=');
 
     return [result, hash];
+  }
+
+  /**
+   * Generate PKCE code challenge for v2 OAuth
+   */
+  generateCodeChallenge() {
+    const verifier = crypto.randomBytes(32).toString('base64url');
+    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+
+    return {
+      code_verifier: verifier,
+      code_challenge: challenge,
+      code_challenge_method: 'S256',
+    };
+  }
+
+  /**
+   * Generate FordConnect 2.0 Authorization URL
+   */
+  generateV2AuthUrl() {
+    const pkce = this.generateCodeChallenge();
+    this.codeVerifier = pkce.code_verifier;
+
+    const authUrl = `${this.v2Config.login_url}/${this.v2Config.oauth_id}/B2C_1A_SignInSignUp_${this.v2Config.locale}/oauth2/v2.0/authorize`;
+
+    const params = new URLSearchParams({
+      redirect_uri: this.v2Config.redirect_uri,
+      response_type: 'code',
+      max_age: '3600',
+      code_challenge: pkce.code_challenge,
+      code_challenge_method: pkce.code_challenge_method,
+      scope: ` ${this.v2Config.v2_clientId} openid`,
+      client_id: this.v2Config.v2_clientId,
+      ui_locales: this.v2Config.locale,
+      language_code: this.v2Config.locale,
+      ford_application_id: this.v2Config.appId,
+      country_code: 'DEU',
+    });
+
+    return `${authUrl}?${params.toString()}`;
+  }
+
+  /**
+   * Exchange authorization code for access token (v2 OAuth)
+   */
+  async exchangeCodeForTokenV2(code) {
+    this.log.info('Exchanging authorization code for access token...');
+
+    try {
+      const tokenData = {
+        grant_type: 'authorization_code',
+        client_id: this.v2Config.v2_clientId,
+        scope: `${this.v2Config.v2_clientId} openid`,
+        redirect_uri: this.v2Config.redirect_uri,
+        resource: '',
+        code: code,
+        code_verifier: this.codeVerifier,
+      };
+
+      const response = await this.requestClient({
+        method: 'post',
+        url: `${this.v2Config.login_url}/${this.v2Config.oauth_id}/B2C_1A_SignInSignUp_${this.v2Config.locale}/oauth2/v2.0/token`,
+        headers: {
+          'Accept-Encoding': 'gzip',
+          Connection: 'Keep-Alive',
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'okhttp/4.12.0',
+        },
+        data: qs.stringify(tokenData),
+        timeout: 30000,
+      });
+
+      const firstToken = response.data;
+      this.log.info('OAuth token received, exchanging for FordConnect token...');
+
+      const finalTokenResponse = await this.requestClient({
+        method: 'post',
+        url: 'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
+        headers: {
+          'Accept-Encoding': 'gzip',
+          Connection: 'Keep-Alive',
+          'Content-Type': 'application/json',
+          'User-Agent': 'okhttp/4.12.0',
+          'Application-Id': this.v2Config.appId,
+        },
+        data: JSON.stringify({ idpToken: firstToken.access_token }),
+        timeout: 30000,
+      });
+
+      this.sessionV2 = finalTokenResponse.data;
+      this.session = finalTokenResponse.data;
+      this.setState('info.connection', true, true);
+      this.log.info('Token exchange successful');
+      this.log.info(`Token expires in: ${Math.floor(this.sessionV2.expires_in / 60)} minutes`);
+
+      await this.extendObjectAsync('auth', {
+        type: 'state',
+        common: {
+          name: 'auth',
+          type: 'string',
+          role: 'json',
+          read: true,
+          write: true,
+        },
+        native: {},
+      });
+      await this.setStateAsync('auth', { val: JSON.stringify(this.sessionV2), ack: true });
+
+      return true;
+    } catch (error) {
+      this.log.error('Token exchange failed');
+      this.log.error(error.message);
+
+      if (error.response) {
+        this.log.error(`HTTP Status: ${error.response.status}`);
+        this.log.error(JSON.stringify(error.response.data));
+      }
+
+      return false;
+    }
   }
   /**
    * Is called when adapter shuts down - callback has to be called under any circumstances!
