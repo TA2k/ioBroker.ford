@@ -143,15 +143,15 @@ class Ford extends utils.Adapter {
       this.log.warn('========================================');
       this.log.warn('');
       this.log.warn('Please follow these steps:');
-      this.log.warn('1. Open your browser Developer Tools (F12)');
+      this.log.warn('1. Open Chrome and press F1 to open Developer Tools');
       this.log.warn('2. Go to the Network tab');
-      this.log.warn('3. Copy and paste this URL into your browser:');
+      this.log.warn('3. Copy and paste this URL in Chrome:');
       this.log.warn('');
       this.log.warn(this.generateV2AuthUrl());
       this.log.warn('');
       this.log.warn('4. Log in with your Ford account');
-      this.log.warn('5. After redirect, browser will show "Cannot open page"');
-      this.log.warn('6. COPY the complete URL from browser address bar (starts with: fordapp://userauthorized/?code=)');
+      this.log.warn('5. After redirect, the Login process will stuck. This is expected.');
+      this.log.warn('6. COPY the complete red URL from network tab (starts with: fordapp://userauthorized/?code=)');
       this.log.warn('7. Paste it into the "v2 Code URL" field in adapter settings');
       this.log.warn('8. Save and restart the adapter');
       this.log.warn('');
@@ -799,6 +799,8 @@ class Ford extends utils.Adapter {
     ];
 
     const headers = {
+      'Accept-Encoding': 'gzip',
+      Connection: 'Keep-Alive',
       'content-type': 'application/json',
       'application-id': this.appId,
       accept: '*/*',
@@ -940,6 +942,8 @@ class Ford extends utils.Adapter {
       method: 'post',
       url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
       headers: {
+        'Accept-Encoding': 'gzip',
+        Connection: 'Keep-Alive',
         accept: '*/*',
         'content-type': 'application/json',
         'application-id': this.appId,
@@ -1165,9 +1169,12 @@ class Ford extends utils.Adapter {
 
           url = 'https://api.mps.ford.com/api/fordconnect/v1/vehicles/' + vin + '/' + action;
           headers = {
+            'Accept-Encoding': 'gzip',
+            Connection: 'Keep-Alive',
             Accept: 'application/json',
             'Content-Type': 'application/json',
-            'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
+            'Application-Id': this.appId,
+            'User-Agent': 'okhttp/4.12.0',
             Authorization: 'Bearer ' + this.session.access_token,
           };
           data = {};
@@ -1178,12 +1185,14 @@ class Ford extends utils.Adapter {
             return;
           }
           headers = {
+            'Accept-Encoding': 'gzip',
+            Connection: 'Keep-Alive',
             'content-type': 'application/json',
             'application-id': this.appId,
             accept: '*/*',
             'x-dynatrace': this.dyna,
             authorization: 'Bearer ' + this.autonom.access_token,
-            'user-agent': 'okhttp/4.10.0',
+            'user-agent': 'okhttp/4.12.0',
           };
           url = 'https://api.autonomic.ai/v1/command/vehicles/' + vin + '/commands';
           data = {
