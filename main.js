@@ -143,7 +143,7 @@ class Ford extends utils.Adapter {
       this.log.warn('========================================');
       this.log.warn('');
       this.log.warn('Please follow these steps:');
-      this.log.warn('1. Open Chrome and press F1 to open Developer Tools');
+      this.log.warn('1. Open Chrome and press F12 to open Developer Tools');
       this.log.warn('2. Go to the Network tab');
       this.log.warn('3. Copy and paste this URL in Chrome:');
       this.log.warn('');
