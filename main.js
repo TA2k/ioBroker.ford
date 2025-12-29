@@ -827,14 +827,20 @@ class Ford extends utils.Adapter {
           },
         })
           .then((res) => {
+            this.log.debug('Force update successful');
             this.log.debug(JSON.stringify(res.data));
             return res.data;
           })
           .catch((error) => {
-            this.log.error('Failed to force update');
-            this.log.error(error);
-            if (error.response) {
-              this.log.error(JSON.stringify(error.response.data));
+            // 404 means vehicle doesn't support statusRefresh - this is normal for many vehicles
+            if (error.response && error.response.status === 404) {
+              this.log.debug('Force update not supported by vehicle (statusRefresh command not available)');
+            } else {
+              this.log.error('Failed to force update');
+              this.log.error(error);
+              if (error.response) {
+                this.log.error(JSON.stringify(error.response.data));
+              }
             }
           });
       }
