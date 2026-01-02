@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "news": {
+      "1.1.5": {
+        "en": "update headers and fix UI",
+        "de": "Update Header und UI-Fehlerbehebung",
+        "ru": "обновить заголовки и исправить UI",
+        "pt": "atualizar cabeçalhos e corrigir UI",
+        "nl": "update headers en fix UI",
+        "fr": "mise à jour des en-têtes et correction de l'interface utilisateur",
+        "it": "aggiornare le intestazioni e correggere l'interfaccia utente",
+        "es": "actualizar encabezados y corregir UI",
+        "pl": "aktualizacja nagłówków i napraw UI",
+        "uk": "оновити заголовки та виправити UI",
+        "zh-cn": "更新标题并修复UI"
+      },
       "1.1.4": {
         "en": "fix login flow",
         "de": "fehlerbehebung",
