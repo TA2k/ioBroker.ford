@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.1.5",
+    "version": "1.2.0",
     "news": {
+      "1.2.0": {
+        "en": "Add WebSocket for real-time updates, remove x-dynatrace header to reduce account blocking",
+        "de": "WebSocket für Echtzeit-Updates hinzugefügt, x-dynatrace Header entfernt um Account-Sperrungen zu reduzieren",
+        "ru": "Добавлен WebSocket для обновлений в реальном времени, удален заголовок x-dynatrace для уменьшения блокировки аккаунта",
+        "pt": "Adicionar WebSocket para atualizações em tempo real, remover cabeçalho x-dynatrace para reduzir bloqueio de conta",
+        "nl": "WebSocket toegevoegd voor real-time updates, x-dynatrace header verwijderd om account blokkering te verminderen",
+        "fr": "Ajout de WebSocket pour les mises à jour en temps réel, suppression de l'en-tête x-dynatrace pour réduire le blocage de compte",
+        "it": "Aggiunto WebSocket per aggiornamenti in tempo reale, rimosso header x-dynatrace per ridurre il blocco dell'account",
+        "es": "Agregar WebSocket para actualizaciones en tiempo real, eliminar encabezado x-dynatrace para reducir el bloqueo de cuenta",
+        "pl": "Dodano WebSocket dla aktualizacji w czasie rzeczywistym, usunięto nagłówek x-dynatrace aby zmniejszyć blokowanie konta",
+        "uk": "Додано WebSocket для оновлень в реальному часі, видалено заголовок x-dynatrace для зменшення блокування облікового запису",
+        "zh-cn": "添加WebSocket用于实时更新，移除x-dynatrace头以减少账户封锁"
+      },
       "1.1.5": {
         "en": "update headers and fix UI",
         "de": "Update Header und UI-Fehlerbehebung",
