@@ -13,7 +13,7 @@ const Json2iob = require('json2iob');
 const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
 class Ford extends utils.Adapter {
   /**
    * @param {Partial<utils.AdapterOptions>} [options={}]
@@ -32,8 +32,11 @@ class Ford extends utils.Adapter {
     this.autonomTokenV2 = null;
     this.ignoredAPI = [];
     this.appId = '667D773E-1BDC-4139-8AD0-2B16474E8DC7';
-    this.dyna = 'MT_3_30_2352378557_3-0_' + uuidv4() + '_0_789_87';
     this.cookieJar = new tough.CookieJar();
+    this.ws = null;
+    this.wsReconnectTimeout = null;
+    this.wsHeartbeatInterval = null;
+    this.isUnloading = false;
 
     // v2 OAuth config with static PKCE (simpler but less secure - acceptable for local adapter)
     this.v2Config = {
@@ -163,6 +166,12 @@ class Ford extends utils.Adapter {
       await this.getVehicles();
       await this.cleanObjects();
       await this.updateVehicles();
+
+      // Connect WebSocket for real-time updates (for each vehicle)
+      for (const vin of this.vinArray) {
+        await this.connectWebSocket(vin);
+      }
+
       this.updateInterval = setInterval(async () => {
         await this.updateVehicles();
       }, this.config.interval * 60 * 1000);
@@ -674,7 +683,6 @@ class Ford extends utils.Adapter {
       'content-type': 'application/json',
       'application-id': this.appId,
       accept: '*/*',
-      'x-dynatrace': this.dyna,
       'auth-token': this.session.access_token,
       locale: 'DE-DE',
       'accept-language': 'de-de',
@@ -804,7 +812,6 @@ class Ford extends utils.Adapter {
       'content-type': 'application/json',
       'application-id': this.appId,
       accept: '*/*',
-      'x-dynatrace': this.dyna,
       authorization: 'Bearer ' + this.autonom.access_token,
       'user-agent': 'okhttp/4.12.0',
     };
@@ -997,6 +1004,152 @@ class Ford extends utils.Adapter {
         }, 1000 * 60 * 5);
       });
   }
+
+  /**
+   * Connect to Autonomic WebSocket for real-time vehicle updates
+   * This reduces polling and provides instant status updates
+   */
+  async connectWebSocket(vin) {
+    if (!this.autonom || !this.autonom.access_token) {
+      this.log.debug('No autonom token available for WebSocket connection');
+      return;
+    }
+
+    const wsUrl = `wss://api.autonomic.ai/v1beta/vehicles/${vin}/messages`;
+
+    this.log.info(`Connecting WebSocket for ${vin}...`);
+
+    try {
+      this.ws = new WebSocket(wsUrl, {
+        headers: {
+          Authorization: `Bearer ${this.autonom.access_token}`,
+          'User-Agent': 'okhttp/4.12.0',
+        },
+      });
+
+      this.ws.on('open', () => {
+        this.log.info(`WebSocket connected for ${vin}`);
+
+        // Send initial subscription message
+        const subscribeMsg = {
+          action: 'subscribe',
+          type: 'metrics',
+        };
+        this.ws.send(JSON.stringify(subscribeMsg));
+
+        // Setup heartbeat to keep connection alive
+        this.wsHeartbeatInterval = setInterval(() => {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.ping();
+          }
+        }, 30000);
+      });
+
+      this.ws.on('message', async (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.log.debug(`WebSocket message: ${JSON.stringify(message)}`);
+
+          // Handle different message types from Autonomic WebSocket
+          if (message._httpStatus) {
+            // HTTP status response (e.g., 202 for token accepted)
+            this.log.debug(`WebSocket HTTP status: ${message._httpStatus}`);
+          } else if (message._error) {
+            // Error response
+            this.log.warn(`WebSocket error: ${JSON.stringify(message._error)}`);
+          } else if (message._data) {
+            // Vehicle data update - merge into existing statusQuery like ha-fordpass does
+            const wsData = message._data;
+            this.log.debug(`WebSocket data received for ${vin}`);
+
+            // Parse data directly into statusQuery (same location as REST API data)
+            await this.json2iob.parse(vin + '.statusQuery', wsData, {
+              forceIndex: true,
+              autoCast: true,
+              channelName: 'Current status via query of the car. Check your 12V battery regularly.',
+            });
+
+            // Update 12V battery if available
+            if (wsData.metrics && wsData.metrics.batteryVoltage) {
+              const current12V = wsData.metrics.batteryVoltage.value;
+              if (current12V < 12.1) {
+                this.log.warn('12V battery is under 12.1V: ' + current12V + 'V');
+              }
+              this.last12V = current12V;
+            }
+          } else if (message.metrics || message.states || message.events) {
+            // Direct data format (fallback)
+            await this.json2iob.parse(vin + '.statusQuery', message, {
+              forceIndex: true,
+              autoCast: true,
+              channelName: 'Current status via query of the car. Check your 12V battery regularly.',
+            });
+
+            if (message.metrics && message.metrics.batteryVoltage) {
+              const current12V = message.metrics.batteryVoltage.value;
+              if (current12V < 12.1) {
+                this.log.warn('12V battery is under 12.1V: ' + current12V + 'V');
+              }
+              this.last12V = current12V;
+            }
+          }
+        } catch (parseError) {
+          this.log.debug(`Failed to parse WebSocket message: ${parseError}`);
+        }
+      });
+
+      this.ws.on('close', (code, reason) => {
+        this.log.info(`WebSocket closed: ${code} - ${reason}`);
+        this.clearWebSocketIntervals();
+
+        // Reconnect after delay (unless adapter is stopping)
+        if (!this.isUnloading) {
+          this.wsReconnectTimeout = setTimeout(() => {
+            this.log.info('Attempting WebSocket reconnection...');
+            this.connectWebSocket(vin);
+          }, 30000);
+        }
+      });
+
+      this.ws.on('error', (error) => {
+        this.log.debug(`WebSocket error: ${error.message}`);
+      });
+
+      this.ws.on('pong', () => {
+        this.log.debug('WebSocket pong received');
+      });
+    } catch (error) {
+      this.log.debug(`Failed to create WebSocket: ${error}`);
+    }
+  }
+
+  /**
+   * Disconnect WebSocket connection
+   */
+  disconnectWebSocket() {
+    this.clearWebSocketIntervals();
+
+    if (this.ws) {
+      this.log.info('Closing WebSocket connection...');
+      this.ws.close();
+      this.ws = null;
+    }
+  }
+
+  /**
+   * Clear WebSocket related intervals and timeouts
+   */
+  clearWebSocketIntervals() {
+    if (this.wsHeartbeatInterval) {
+      clearInterval(this.wsHeartbeatInterval);
+      this.wsHeartbeatInterval = null;
+    }
+    if (this.wsReconnectTimeout) {
+      clearTimeout(this.wsReconnectTimeout);
+      this.wsReconnectTimeout = null;
+    }
+  }
+
   async cleanObjects() {
     for (const vin of this.vinArray) {
       const remoteState = await this.getObjectAsync(vin + '.statusv2');
@@ -1131,7 +1284,9 @@ class Ford extends utils.Adapter {
    */
   onUnload(callback) {
     try {
+      this.isUnloading = true;
       this.setState('info.connection', false, true);
+      this.disconnectWebSocket();
       clearTimeout(this.refreshTimeout);
       this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
       this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
@@ -1196,7 +1351,6 @@ class Ford extends utils.Adapter {
             'content-type': 'application/json',
             'application-id': this.appId,
             accept: '*/*',
-            'x-dynatrace': this.dyna,
             authorization: 'Bearer ' + this.autonom.access_token,
             'user-agent': 'okhttp/4.12.0',
           };
