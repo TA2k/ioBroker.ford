@@ -156,6 +156,7 @@
     "extIcon": "https://raw.githubusercontent.com/TA2k/ioBroker.ford/master/admin/ford.png",
     "readme": "https://github.com/TA2k/ioBroker.ford/blob/master/README.md",
     "loglevel": "info",
+    "tier": 2,
     "mode": "daemon",
     "type": "vehicle",
     "compact": true,
