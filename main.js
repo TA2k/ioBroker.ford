@@ -36,6 +36,7 @@ class Ford extends utils.Adapter {
     this.ws = null;
     this.wsReconnectTimeout = null;
     this.wsHeartbeatInterval = null;
+    this.autonomTokenRefreshInterval = null;
     this.isUnloading = false;
     this.skipForceUpdate = false;
 
@@ -183,6 +184,19 @@ class Ford extends utils.Adapter {
       this.refreshTokenInterval = setInterval(() => {
         this.refreshToken();
       }, (this.session.expires_in - 120) * 1000);
+
+      // Refresh Autonomic token every 28.5 minutes and reconnect WebSocket
+      this.autonomTokenRefreshInterval = setInterval(async () => {
+        this.log.debug('Refreshing Autonomic token...');
+        await this.getAutonomToken();
+        if (this.autonom && this.autonom.access_token) {
+          this.log.debug('Autonomic token refreshed, reconnecting WebSocket...');
+          for (const vin of this.vinArray) {
+            this.disconnectWebSocket();
+            await this.connectWebSocket(vin);
+          }
+        }
+      }, 28.5 * 60 * 1000);
     }
   }
   async refreshTokenApi() {
@@ -1374,6 +1388,7 @@ class Ford extends utils.Adapter {
       this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
       this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
       this.updateInterval && clearInterval(this.updateInterval);
+      this.autonomTokenRefreshInterval && clearInterval(this.autonomTokenRefreshInterval);
       clearInterval(this.refreshTokenInterval);
 
       // Clear v2_codeUrl after successful login to avoid reusing consumed code on next start
