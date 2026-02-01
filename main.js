@@ -38,7 +38,15 @@ class Ford extends utils.Adapter {
     this.wsHeartbeatInterval = null;
     this.isUnloading = false;
 
-    // v2 OAuth config with static PKCE (simpler but less secure - acceptable for local adapter)
+    // Dynatrace simulation - generate realistic looking headers
+    this.dynatraceServerId = Math.floor(Math.random() * 9000000000) + 1000000000;
+    this.dynatraceVisitorId = crypto.randomUUID();
+    this.dynatraceActionCounter = 0;
+
+    // Generate dynamic PKCE for each session
+    const pkce = this.generatePKCE();
+
+    // v2 OAuth config with dynamic PKCE
     this.v2Config = {
       oauth_id: '4566605f-43a7-400a-946e-89cc9fdb0bd7',
       v2_clientId: '09852200-05fd-41f6-8c21-d36d3497dc64',
@@ -46,8 +54,8 @@ class Ford extends utils.Adapter {
       appId: '667D773E-1BDC-4139-8AD0-2B16474E8DC7',
       locale: 'de-DE',
       login_url: 'https://login.ford.de',
-      code_verifier: 'CIADHQqnmEoma2SDA4edG46FlWYZQrQrOSNIuL8fk7E',
-      code_challenge: 'zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg',
+      code_verifier: pkce.code_verifier,
+      code_challenge: pkce.code_challenge,
     };
 
     // const adapterConfig = {
@@ -303,14 +311,15 @@ class Ford extends utils.Adapter {
         redirect_uri: 'fordapp://userauthorized',
         response_type: 'code',
         max_age: '3600',
-        code_challenge: 'zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg',
+        login_hint: 'eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ==',
+        code_challenge: this.v2Config.code_challenge,
         code_challenge_method: 'S256',
         scope: '09852200-05fd-41f6-8c21-d36d3497dc64 openid',
         client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
         ui_locales: 'de-DE',
         language_code: 'de-DE',
         country_code: 'DEU',
-        ford_application_id: '1E8C7794-FF5F-49BC-9596-A1E0C86C5B19',
+        ford_application_id: this.appId,
       },
     })
       .then((res) => {
@@ -349,7 +358,9 @@ class Ford extends utils.Adapter {
         Referer:
           'https://login.ford.' +
           this.currentDomain +
-          '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=zqeXnKibRiFPmdFOYTUqBJz9lJ7ahQjzPncyN8QroVg&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
+          '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/authorize?redirect_uri=fordapp%3A%2F%2Fuserauthorized&response_type=code&scope=09852200-05fd-41f6-8c21-d36d3497dc64%20openid&max_age=3600&login_hint=eyJyZWFsbSI6ICJjbG91ZElkZW50aXR5UmVhbG0ifQ%3D%3D&code_challenge=' +
+          this.v2Config.code_challenge +
+          '&code_challenge_method=S256&client_id=09852200-05fd-41f6-8c21-d36d3497dc64&language_code=de-DE&ford_application_id=667D773E-1BDC-4139-8AD0-2B16474E8DC7&country_code=DEU',
         'Sec-Fetch-Dest': 'empty',
       },
       data: Buffer.from(data, 'base64').toString('utf-8'),
@@ -442,11 +453,7 @@ class Ford extends utils.Adapter {
       method: 'post',
       maxBodyLength: Infinity,
       url: 'https://login.ford.' + this.currentDomain + '/4566605f-43a7-400a-946e-89cc9fdb0bd7/B2C_1A_SignInSignUp_de-DE/oauth2/v2.0/token',
-      headers: {
-        'x-dynatrace': 'MT_3_31_2178850551_22-0_997d5837-2d14-4fbb-a338-5c70d678d40e_0_11083_292',
-        'content-type': 'application/x-www-form-urlencoded',
-        'user-agent': 'okhttp/4.11.0',
-      },
+      headers: this.getBaseHeaders({ contentType: 'application/x-www-form-urlencoded', withAppId: false }),
       data: {
         client_id: '09852200-05fd-41f6-8c21-d36d3497dc64',
         scope: '09852200-05fd-41f6-8c21-d36d3497dc64 openid',
@@ -454,7 +461,7 @@ class Ford extends utils.Adapter {
         grant_type: 'authorization_code',
         resource: '',
         code: response.code,
-        code_verifier: 'CIADHQqnmEoma2SDA4edG46FlWYZQrQrOSNIuL8fk7E',
+        code_verifier: this.v2Config.code_verifier,
       },
     })
       .then((res) => {
@@ -474,15 +481,8 @@ class Ford extends utils.Adapter {
     }
     await this.requestClient({
       method: 'post',
-      url: 'https://api.mps.ford.com/api/token/v2/cat-with-b2c-access-token',
-
-      headers: {
-        accept: '*/*',
-        'content-type': 'application/json',
-        'application-id': this.appId,
-        'user-agent': 'okhttp/4.9.2',
-        'accept-language': 'de-de',
-      },
+      url: 'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
+      headers: this.getBaseHeaders(),
       data: { idpToken: midToken.access_token },
     })
       .then((res) => {
@@ -677,21 +677,14 @@ class Ford extends utils.Adapter {
     }
   }
   async getVehicles() {
+    // Ford expdashboard API needs: auth-token, Application-Id, countryCode, locale, x-dynatrace
     const headers = {
-      'Accept-Encoding': 'gzip',
-      Connection: 'Keep-Alive',
-      'content-type': 'application/json',
-      'application-id': this.appId,
-      accept: '*/*',
+      ...this.getBaseHeaders({ withLocale: true }),
       'auth-token': this.session.access_token,
-      locale: 'DE-DE',
-      'accept-language': 'de-de',
-      countrycode: 'DEU',
-      'user-agent': 'okhttp/4.12.0',
     };
     await this.requestClient({
       method: 'post',
-      url: 'https://api.mps.ford.com/api/expdashboard/v1/details/',
+      url: 'https://api.vehicle.ford.com/api/expdashboard/v1/details',
       headers: headers,
       data: JSON.stringify({
         dashboardRefreshRequest: 'All',
@@ -727,6 +720,8 @@ class Ford extends utils.Adapter {
           const remoteArray = [
             { command: 'engine/start', name: 'True = Start, False = Stop' },
             { command: 'doors/lock', name: 'True = Lock, False = Unlock' },
+            { command: 'charge/start', name: 'True = Start Charge, False = Cancel Charge' },
+            { command: 'charge/pause', name: 'True = Pause Charge' },
             { command: 'status', name: 'True = Request Status Update' },
             { command: 'refresh', name: 'True = Refresh Status' },
           ];
@@ -806,15 +801,8 @@ class Ford extends utils.Adapter {
       },
     ];
 
-    const headers = {
-      'Accept-Encoding': 'gzip',
-      Connection: 'Keep-Alive',
-      'content-type': 'application/json',
-      'application-id': this.appId,
-      accept: '*/*',
-      authorization: 'Bearer ' + this.autonom.access_token,
-      'user-agent': 'okhttp/4.12.0',
-    };
+    // Autonomic API only needs Authorization header - no Application-Id or Dynatrace
+    const headers = this.getAutonomicHeaders();
     this.vinArray.forEach(async (vin) => {
       if (this.config.forceUpdate) {
         if (this.last12V < 12.1 && !this.config.skip12VCheck) {
@@ -919,6 +907,80 @@ class Ford extends utils.Adapter {
     });
   }
 
+  /**
+   * Generate PKCE code_verifier and code_challenge for OAuth 2.0
+   * @returns {{code_verifier: string, code_challenge: string}}
+   */
+  generatePKCE() {
+    // Generate a random 96-byte code_verifier (base64url encoded)
+    const code_verifier = crypto.randomBytes(96).toString('base64url');
+
+    // Generate code_challenge as SHA256 hash of code_verifier (base64url encoded, no padding)
+    const code_challenge = crypto.createHash('sha256').update(code_verifier).digest('base64url');
+
+    return { code_verifier, code_challenge };
+  }
+
+  /**
+   * Generate a realistic Dynatrace x-dynatrace header
+   * Format: MT_<version>_<serverId>_<actionId>-<depth>_<visitorId>_<actionId>_<timing>_<sequenceNumber>
+   */
+  generateDynatraceHeader() {
+    this.dynatraceActionCounter++;
+    const actionId = this.dynatraceActionCounter;
+    const depth = 0;
+    const timing = Math.floor(Math.random() * 1000) + 100;
+    const sequence = Math.floor(Math.random() * 500);
+
+    return `MT_3_${this.dynatraceServerId}_${actionId}-${depth}_${this.dynatraceVisitorId}_${actionId}_${timing}_${sequence}`;
+  }
+
+  /**
+   * Get base headers for Ford APIs (expdashboard, foundational, etc.)
+   * @param {{contentType?: string, withAppId?: boolean, withDynatrace?: boolean, withLocale?: boolean}} [options] - Additional options
+   * @returns {object} Headers object
+   */
+  getBaseHeaders(options) {
+    const { contentType = 'application/json', withAppId = true, withDynatrace = true, withLocale = false } = options || {};
+
+    const headers = {
+      'Accept-Encoding': 'gzip',
+      Connection: 'Keep-Alive',
+      'Content-Type': contentType,
+      'User-Agent': 'okhttp/4.12.0',
+    };
+
+    if (withAppId) {
+      headers['Application-Id'] = this.appId;
+    }
+
+    if (withDynatrace) {
+      headers['x-dynatrace'] = this.generateDynatraceHeader();
+    }
+
+    if (withLocale) {
+      headers['countryCode'] = 'DEU';
+      headers['locale'] = 'de-DE';
+    }
+
+    return headers;
+  }
+
+  /**
+   * Get headers for Autonomic API calls (telemetry, commands)
+   * Autonomic API only needs Authorization header - no Application-Id or Dynatrace
+   * @returns {object} Headers object
+   */
+  getAutonomicHeaders() {
+    return {
+      'Accept-Encoding': 'gzip',
+      Connection: 'Keep-Alive',
+      'Content-Type': 'application/json',
+      'User-Agent': 'okhttp/4.12.0',
+      Authorization: 'Bearer ' + this.autonom.access_token,
+    };
+  }
+
   async getAutonomToken() {
     await this.requestClient({
       method: 'post',
@@ -954,15 +1016,7 @@ class Ford extends utils.Adapter {
     await this.requestClient({
       method: 'post',
       url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
-      headers: {
-        'Accept-Encoding': 'gzip',
-        Connection: 'Keep-Alive',
-        accept: '*/*',
-        'content-type': 'application/json',
-        'application-id': this.appId,
-        'user-agent': 'okhttp/4.12.0',
-        'accept-language': 'de-de',
-      },
+      headers: this.getBaseHeaders(),
       data: { refresh_token: this.session.refresh_token },
     })
       .then(async (res) => {
@@ -1015,7 +1069,7 @@ class Ford extends utils.Adapter {
       return;
     }
 
-    const wsUrl = `wss://api.autonomic.ai/v1beta/vehicles/${vin}/messages`;
+    const wsUrl = `wss://api.autonomic.ai/v1beta/telemetry/sources/fordpass/vehicles/${vin}/ws`;
 
     this.log.info(`Connecting WebSocket for ${vin}...`);
 
@@ -1219,12 +1273,7 @@ class Ford extends utils.Adapter {
       const response = await this.requestClient({
         method: 'post',
         url: `${this.v2Config.login_url}/${this.v2Config.oauth_id}/B2C_1A_SignInSignUp_${this.v2Config.locale}/oauth2/v2.0/token`,
-        headers: {
-          'Accept-Encoding': 'gzip',
-          Connection: 'Keep-Alive',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'okhttp/4.12.0',
-        },
+        headers: this.getBaseHeaders({ contentType: 'application/x-www-form-urlencoded', withAppId: false }),
         data: qs.stringify(tokenData),
         timeout: 30000,
       });
@@ -1235,13 +1284,7 @@ class Ford extends utils.Adapter {
       const finalTokenResponse = await this.requestClient({
         method: 'post',
         url: 'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
-        headers: {
-          'Accept-Encoding': 'gzip',
-          Connection: 'Keep-Alive',
-          'Content-Type': 'application/json',
-          'User-Agent': 'okhttp/4.12.0',
-          'Application-Id': this.v2Config.appId,
-        },
+        headers: this.getBaseHeaders(),
         data: JSON.stringify({ idpToken: firstToken.access_token }),
         timeout: 30000,
       });
@@ -1330,45 +1373,54 @@ class Ford extends utils.Adapter {
 
           url = 'https://api.mps.ford.com/api/fordconnect/v1/vehicles/' + vin + '/' + action;
           headers = {
-            'Accept-Encoding': 'gzip',
-            Connection: 'Keep-Alive',
+            ...this.getBaseHeaders(),
             Accept: 'application/json',
-            'Content-Type': 'application/json',
-            'Application-Id': this.appId,
-            'User-Agent': 'okhttp/4.12.0',
             Authorization: 'Bearer ' + this.session.access_token,
           };
           data = {};
         } else {
-          await this.getAutonomToken();
-          if (!this.autonom) {
-            this.log.error('Failed to get autonom token');
-            return;
-          }
-          headers = {
-            'Accept-Encoding': 'gzip',
-            Connection: 'Keep-Alive',
-            'content-type': 'application/json',
-            'application-id': this.appId,
-            accept: '*/*',
-            authorization: 'Bearer ' + this.autonom.access_token,
-            'user-agent': 'okhttp/4.12.0',
-          };
-          url = 'https://api.autonomic.ai/v1/command/vehicles/' + vin + '/commands';
-          data = {
-            properties: {},
-            tags: {},
-            type: '',
-            wakeUp: true,
-          };
-          if (command === 'status') {
-            data.type = 'statusRefresh';
-          }
-          if (command === 'engine/start') {
-            data.type = state.val ? 'remoteStart' : 'cancelRemoteStart';
-          }
-          if (command === 'doors/lock') {
-            data.type = state.val ? 'lock' : 'unlock';
+          // Check if this is a charge command - uses Ford Vehicle API, not Autonomic
+          if (command === 'charge/start' || command === 'charge/pause') {
+            let chargeCommand;
+            if (command === 'charge/start') {
+              chargeCommand = state.val ? 'START' : 'CANCEL';
+            } else if (command === 'charge/pause') {
+              chargeCommand = 'PAUSE';
+            }
+
+            // Charge commands use Ford Vehicle API with v2 endpoint (from APK analysis)
+            url = `https://api.vehicle.ford.com/api/electrification/experiences/v2/vehicles/global-charge-command/${chargeCommand}`;
+            headers = {
+              ...this.getBaseHeaders({ withLocale: true }),
+              'auth-token': this.session.access_token,
+              vin: vin,
+            };
+            data = {};
+          } else {
+            // Other commands use Autonomic API
+            await this.getAutonomToken();
+            if (!this.autonom) {
+              this.log.error('Failed to get autonom token');
+              return;
+            }
+            // Autonomic API only needs Authorization header
+            headers = this.getAutonomicHeaders();
+            url = 'https://api.autonomic.ai/v1/command/vehicles/' + vin + '/commands';
+            data = {
+              properties: {},
+              tags: {},
+              type: '',
+              wakeUp: true,
+            };
+            if (command === 'status') {
+              data.type = 'statusRefresh';
+            }
+            if (command === 'engine/start') {
+              data.type = state.val ? 'remoteStart' : 'cancelRemoteStart';
+            }
+            if (command === 'doors/lock') {
+              data.type = state.val ? 'lock' : 'unlock';
+            }
           }
         }
         await this.requestClient({
