@@ -43,10 +43,7 @@ class Ford extends utils.Adapter {
     this.dynatraceVisitorId = crypto.randomUUID();
     this.dynatraceActionCounter = 0;
 
-    // Generate dynamic PKCE for each session
-    const pkce = this.generatePKCE();
-
-    // v2 OAuth config with dynamic PKCE
+    // v2 OAuth config - PKCE will be loaded/generated in onReady
     this.v2Config = {
       oauth_id: '4566605f-43a7-400a-946e-89cc9fdb0bd7',
       v2_clientId: '09852200-05fd-41f6-8c21-d36d3497dc64',
@@ -54,8 +51,8 @@ class Ford extends utils.Adapter {
       appId: '667D773E-1BDC-4139-8AD0-2B16474E8DC7',
       locale: 'de-DE',
       login_url: 'https://login.ford.de',
-      code_verifier: pkce.code_verifier,
-      code_challenge: pkce.code_challenge,
+      code_verifier: '',
+      code_challenge: '',
     };
 
     // const adapterConfig = {
@@ -95,6 +92,9 @@ class Ford extends utils.Adapter {
 
     this.subscribeStates('*');
 
+    // Load or generate PKCE
+    await this.loadOrGeneratePKCE();
+
     const auth = await this.getStateAsync('authV2');
 
     // Check if user provided code URL for v2 OAuth
@@ -111,8 +111,9 @@ class Ford extends utils.Adapter {
           const success = await this.exchangeCodeForTokenV2(code);
 
           if (success) {
-            // Clear the code URL after successful exchange
+            // Clear the code URL and PKCE after successful exchange
             this.log.info('Code exchanged for token successfully.');
+            await this.clearPKCE();
             if (this.config.v2_codeUrl !== '') {
               this.setTimeout(async () => {
                 this.log.info('Clearing v2 Code URL and restart Adapter.');
@@ -919,6 +920,51 @@ class Ford extends utils.Adapter {
     const code_challenge = crypto.createHash('sha256').update(code_verifier).digest('base64url');
 
     return { code_verifier, code_challenge };
+  }
+
+  /**
+   * Load saved PKCE from state or generate new one
+   * PKCE must persist across adapter restarts during the OAuth flow
+   */
+  async loadOrGeneratePKCE() {
+    // Create PKCE state if not exists
+    await this.extendObjectAsync('pkce', {
+      type: 'state',
+      common: {
+        name: 'PKCE code_verifier for OAuth',
+        type: 'string',
+        role: 'text',
+        read: true,
+        write: false,
+      },
+      native: {},
+    });
+
+    // Try to load saved PKCE
+    const savedPkce = await this.getStateAsync('pkce');
+    if (savedPkce && savedPkce.val && typeof savedPkce.val === 'string') {
+      this.log.debug('Using saved PKCE code_verifier');
+      const code_verifier = savedPkce.val;
+      const code_challenge = crypto.createHash('sha256').update(code_verifier).digest('base64url');
+      this.v2Config.code_verifier = code_verifier;
+      this.v2Config.code_challenge = code_challenge;
+    } else {
+      // Generate new PKCE
+      this.log.debug('Generating new PKCE');
+      const pkce = this.generatePKCE();
+      this.v2Config.code_verifier = pkce.code_verifier;
+      this.v2Config.code_challenge = pkce.code_challenge;
+      // Save PKCE for later use (in case adapter restarts during OAuth flow)
+      await this.setStateAsync('pkce', { val: pkce.code_verifier, ack: true });
+    }
+  }
+
+  /**
+   * Clear saved PKCE after successful login
+   */
+  async clearPKCE() {
+    await this.setStateAsync('pkce', { val: '', ack: true });
+    this.log.debug('Cleared saved PKCE');
   }
 
   /**
