@@ -37,6 +37,7 @@ class Ford extends utils.Adapter {
     this.wsReconnectTimeout = null;
     this.wsHeartbeatInterval = null;
     this.isUnloading = false;
+    this.skipForceUpdate = false;
 
     // Dynatrace simulation - generate realistic looking headers
     this.dynatraceServerId = Math.floor(Math.random() * 9000000000) + 1000000000;
@@ -111,20 +112,11 @@ class Ford extends utils.Adapter {
           const success = await this.exchangeCodeForTokenV2(code);
 
           if (success) {
-            // Clear the code URL and PKCE after successful exchange
+            // Clear PKCE after successful exchange
             this.log.info('Code exchanged for token successfully.');
             await this.clearPKCE();
-            if (this.config.v2_codeUrl !== '') {
-              this.setTimeout(async () => {
-                this.log.info('Clearing v2 Code URL and restart Adapter.');
-                const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
-                const obj = await this.getForeignObjectAsync(adapterConfig);
-                if (obj) {
-                  obj.native.v2_codeUrl = '';
-                  await this.setForeignObjectAsync(adapterConfig, obj);
-                }
-              }, 3000);
-            }
+            // Skip force update on first start after login to avoid immediate API calls
+            this.skipForceUpdate = true;
           } else {
             this.log.error('Failed to exchange code for token');
             return;
@@ -175,6 +167,8 @@ class Ford extends utils.Adapter {
       await this.getVehicles();
       await this.cleanObjects();
       await this.updateVehicles();
+      // Reset skipForceUpdate after first update so subsequent intervals do force updates
+     // this.skipForceUpdate = false;
 
       // Connect WebSocket for real-time updates (for each vehicle)
       for (const vin of this.vinArray) {
@@ -805,7 +799,7 @@ class Ford extends utils.Adapter {
     // Autonomic API only needs Authorization header - no Application-Id or Dynatrace
     const headers = this.getAutonomicHeaders();
     this.vinArray.forEach(async (vin) => {
-      if (this.config.forceUpdate) {
+      if (this.config.forceUpdate && !this.skipForceUpdate) {
         if (this.last12V < 12.1 && !this.config.skip12VCheck) {
           this.log.warn('12V battery is under 12.1V: ' + this.last12V + 'V - Skip force update from car');
           return;
@@ -1371,7 +1365,7 @@ class Ford extends utils.Adapter {
    * Is called when adapter shuts down - callback has to be called under any circumstances!
    * @param {() => void} callback
    */
-  onUnload(callback) {
+  async onUnload(callback) {
     try {
       this.isUnloading = true;
       this.setState('info.connection', false, true);
@@ -1381,6 +1375,18 @@ class Ford extends utils.Adapter {
       this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
       this.updateInterval && clearInterval(this.updateInterval);
       clearInterval(this.refreshTokenInterval);
+
+      // Clear v2_codeUrl after successful login to avoid reusing consumed code on next start
+      if (this.session && this.session.access_token) {
+        const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
+        const obj = await this.getForeignObjectAsync(adapterConfig);
+        if (obj && obj.native && obj.native.v2_codeUrl) {
+          obj.native.v2_codeUrl = '';
+          await this.setForeignObjectAsync(adapterConfig, obj);
+          this.log.debug('v2_codeUrl cleared from config');
+        }
+      }
+
       callback();
     } catch {
       callback();
