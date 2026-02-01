@@ -36,7 +36,6 @@ class Ford extends utils.Adapter {
     this.ws = null;
     this.wsReconnectTimeout = null;
     this.wsHeartbeatInterval = null;
-    this.autonomTokenRefreshInterval = null;
     this.isUnloading = false;
     this.skipForceUpdate = false;
 
@@ -179,23 +178,10 @@ class Ford extends utils.Adapter {
       this.updateInterval = setInterval(async () => {
         await this.updateVehicles();
       }, this.config.interval * 60 * 1000);
-      // check expires_in exist
-      this.session.expires_in = this.session.expires_in || 1800;
-      this.refreshTokenInterval = setInterval(() => {
-        this.refreshToken();
-      }, (this.session.expires_in - 120) * 1000);
 
-      // Refresh Autonomic token every 28.5 minutes and reconnect WebSocket
-      this.autonomTokenRefreshInterval = setInterval(async () => {
-        this.log.debug('Refreshing Autonomic token...');
-        await this.getAutonomToken();
-        if (this.autonom && this.autonom.access_token) {
-          this.log.debug('Autonomic token refreshed, reconnecting WebSocket...');
-          for (const vin of this.vinArray) {
-            this.disconnectWebSocket();
-            await this.connectWebSocket(vin);
-          }
-        }
+      // Refresh all tokens (Ford + Autonomic) every 28.5 minutes and reconnect WebSocket
+      this.refreshTokenInterval = setInterval(() => {
+        this.refreshAllTokens();
       }, 28.5 * 60 * 1000);
     }
   }
@@ -1065,52 +1051,87 @@ class Ford extends utils.Adapter {
   }
 
   async refreshToken() {
-    this.log.debug('Refreshing access token...');
+    this.log.debug('Refreshing Ford access token...');
 
-    await this.requestClient({
-      method: 'post',
-      url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
-      headers: this.getBaseHeaders(),
-      data: { refresh_token: this.session.refresh_token },
-    })
-      .then(async (res) => {
-        this.log.debug(JSON.stringify(res.data));
-        this.session = res.data;
-        this.sessionV2 = res.data;
-        this.setState('info.connection', true, true);
-        this.log.info('Token refresh successful');
-        this.log.debug(`Token expires in: ${Math.floor(this.session.expires_in / 60)} minutes`);
-
-        // Save updated session to authV2 state
-        await this.extendObjectAsync('authV2', {
-          type: 'state',
-          common: {
-            name: 'authV2',
-            type: 'string',
-            role: 'json',
-            read: true,
-            write: true,
-          },
-          native: {},
-        });
-        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
-
-        return res.data;
-      })
-      .catch((error) => {
-        this.log.error('Refresh token failed');
-        this.log.error(error);
-        error.response && this.log.error(JSON.stringify(error.response.data));
-
-        // Token refresh failed - user needs to re-authenticate
-        this.log.error('Token refresh failed. Please re-authenticate via adapter settings.');
-        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
-        this.log.error('The adapter will try again in 5 minutes...');
-
-        this.reLoginTimeout = setTimeout(() => {
-          this.refreshToken();
-        }, 1000 * 60 * 5);
+    try {
+      const res = await this.requestClient({
+        method: 'post',
+        url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
+        headers: this.getBaseHeaders(),
+        data: { refresh_token: this.session.refresh_token },
       });
+
+      this.log.debug(JSON.stringify(res.data));
+      this.session = res.data;
+      this.sessionV2 = res.data;
+      this.setState('info.connection', true, true);
+      this.log.info('Ford token refresh successful');
+      this.log.debug(`Token expires in: ${Math.floor(this.session.expires_in / 60)} minutes`);
+
+      // Save updated session to authV2 state
+      await this.extendObjectAsync('authV2', {
+        type: 'state',
+        common: {
+          name: 'authV2',
+          type: 'string',
+          role: 'json',
+          read: true,
+          write: true,
+        },
+        native: {},
+      });
+      await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
+
+      return true;
+    } catch (error) {
+      this.log.error('Ford token refresh failed');
+      if (error instanceof Error) {
+        this.log.error(error.message);
+      }
+      if (error && typeof error === 'object' && 'response' in error) {
+        this.log.error(JSON.stringify(error.response));
+      }
+
+      this.log.error('Token refresh failed. Please re-authenticate via adapter settings.');
+      this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
+      this.log.error('The adapter will try again in 5 minutes...');
+
+      this.reLoginTimeout = setTimeout(() => {
+        this.refreshAllTokens();
+      }, 1000 * 60 * 5);
+
+      return false;
+    }
+  }
+
+  /**
+   * Refresh all tokens (Ford + Autonomic) and reconnect WebSocket
+   * Called every 28.5 minutes to keep tokens fresh
+   */
+  async refreshAllTokens() {
+    this.log.debug('Refreshing all tokens...');
+
+    // 1. Refresh Ford token first (Autonomic depends on it)
+    const fordSuccess = await this.refreshToken();
+    if (!fordSuccess) {
+      this.log.error('Ford token refresh failed, skipping Autonomic refresh');
+      return;
+    }
+
+    // 2. Refresh Autonomic token
+    await this.getAutonomToken();
+    if (!this.autonom || !this.autonom.access_token) {
+      this.log.error('Autonomic token refresh failed');
+      return;
+    }
+    this.log.debug('Autonomic token refreshed');
+
+    // 3. Reconnect WebSocket with new token
+    this.log.debug('Reconnecting WebSocket with fresh token...');
+    this.disconnectWebSocket();
+    for (const vin of this.vinArray) {
+      await this.connectWebSocket(vin);
+    }
   }
 
   /**
@@ -1388,8 +1409,7 @@ class Ford extends utils.Adapter {
       this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
       this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
       this.updateInterval && clearInterval(this.updateInterval);
-      this.autonomTokenRefreshInterval && clearInterval(this.autonomTokenRefreshInterval);
-      clearInterval(this.refreshTokenInterval);
+      this.refreshTokenInterval && clearInterval(this.refreshTokenInterval);
 
       // Clear v2_codeUrl after successful login to avoid reusing consumed code on next start
       if (this.session && this.session.access_token) {
