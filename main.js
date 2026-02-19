@@ -36,6 +36,9 @@ class Ford extends utils.Adapter {
     this.ws = null;
     this.wsReconnectTimeout = null;
     this.wsHeartbeatInterval = null;
+    this.wsTokenRefreshInterval = null;
+    this.autonomExpiresAt = null;
+    this.wsCurrentToken = null;
     this.isUnloading = false;
     this.skipForceUpdate = false;
 
@@ -1040,6 +1043,11 @@ class Ford extends utils.Adapter {
       .then((res) => {
         this.log.debug(JSON.stringify(res.data));
         this.autonom = res.data;
+        // Track token expiry time (expires_in is in seconds)
+        if (res.data.expires_in) {
+          this.autonomExpiresAt = Date.now() + res.data.expires_in * 1000;
+          this.log.debug(`Autonomic token expires at: ${new Date(this.autonomExpiresAt).toISOString()}`);
+        }
         return res.data;
       })
       .catch((error) => {
@@ -1105,33 +1113,22 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Refresh all tokens (Ford + Autonomic) and reconnect WebSocket
-   * Called every 28.5 minutes to keep tokens fresh
+   * Refresh Ford token (called every 28.5 minutes)
+   * Autonomic token is refreshed automatically by wsTokenRefreshInterval
    */
   async refreshAllTokens() {
-    this.log.debug('Refreshing all tokens...');
+    this.log.debug('Refreshing Ford token...');
 
-    // 1. Refresh Ford token first (Autonomic depends on it)
+    // Refresh Ford token (Autonomic token is managed by checkAndRefreshAutonomToken)
     const fordSuccess = await this.refreshToken();
     if (!fordSuccess) {
-      this.log.error('Ford token refresh failed, skipping Autonomic refresh');
+      this.log.error('Ford token refresh failed');
       return;
     }
 
-    // 2. Refresh Autonomic token
-    await this.getAutonomToken();
-    if (!this.autonom || !this.autonom.access_token) {
-      this.log.error('Autonomic token refresh failed');
-      return;
-    }
-    this.log.debug('Autonomic token refreshed');
-
-    // 3. Reconnect WebSocket with new token
-    this.log.debug('Reconnecting WebSocket with fresh token...');
-    this.disconnectWebSocket();
-    for (const vin of this.vinArray) {
-      await this.connectWebSocket(vin);
-    }
+    // Ford token refreshed - Autonomic token will be refreshed automatically
+    // when checkAndRefreshAutonomToken detects it's about to expire
+    this.log.debug('Ford token refreshed');
   }
 
   /**
@@ -1159,6 +1156,9 @@ class Ford extends utils.Adapter {
       this.ws.on('open', () => {
         this.log.info(`WebSocket connected for ${vin}`);
 
+        // Track current token used for this WebSocket connection
+        this.wsCurrentToken = this.autonom.access_token;
+
         // Send initial subscription message
         const subscribeMsg = {
           action: 'subscribe',
@@ -1171,6 +1171,11 @@ class Ford extends utils.Adapter {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
             this.ws.ping();
           }
+        }, 30000);
+
+        // Setup token refresh check (every 30 seconds, like ha-fordpass)
+        this.wsTokenRefreshInterval = setInterval(() => {
+          this.checkAndRefreshAutonomToken();
         }, 30000);
       });
 
@@ -1253,6 +1258,44 @@ class Ford extends utils.Adapter {
   }
 
   /**
+   * Update WebSocket with new access token (without reconnecting)
+   * Like ha-fordpass does - sends {"accessToken": "..."} and expects HTTP 202
+   */
+  updateWebSocketToken() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.autonom && this.autonom.access_token) {
+      if (this.wsCurrentToken !== this.autonom.access_token) {
+        this.log.debug('Updating WebSocket with new access token...');
+        this.ws.send(JSON.stringify({ accessToken: this.autonom.access_token }));
+        this.wsCurrentToken = this.autonom.access_token;
+      }
+    }
+  }
+
+  /**
+   * Check if Autonomic token needs refresh (45 seconds before expiry)
+   * Called periodically while WebSocket is connected
+   */
+  async checkAndRefreshAutonomToken() {
+    if (!this.autonomExpiresAt) {
+      return;
+    }
+
+    const timeUntilExpiry = this.autonomExpiresAt - Date.now();
+    const secondsUntilExpiry = Math.floor(timeUntilExpiry / 1000);
+
+    // Refresh 45 seconds before expiry (like ha-fordpass)
+    if (secondsUntilExpiry < 45) {
+      this.log.debug(`Autonomic token expires in ${secondsUntilExpiry}s - refreshing...`);
+      await this.getAutonomToken();
+
+      if (this.autonom && this.autonom.access_token) {
+        this.log.debug('Autonomic token refreshed, updating WebSocket...');
+        this.updateWebSocketToken();
+      }
+    }
+  }
+
+  /**
    * Disconnect WebSocket connection
    */
   disconnectWebSocket() {
@@ -1263,6 +1306,7 @@ class Ford extends utils.Adapter {
       this.ws.close();
       this.ws = null;
     }
+    this.wsCurrentToken = null;
   }
 
   /**
@@ -1272,6 +1316,10 @@ class Ford extends utils.Adapter {
     if (this.wsHeartbeatInterval) {
       clearInterval(this.wsHeartbeatInterval);
       this.wsHeartbeatInterval = null;
+    }
+    if (this.wsTokenRefreshInterval) {
+      clearInterval(this.wsTokenRefreshInterval);
+      this.wsTokenRefreshInterval = null;
     }
     if (this.wsReconnectTimeout) {
       clearTimeout(this.wsReconnectTimeout);
