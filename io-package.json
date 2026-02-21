@@ -182,8 +182,10 @@
   "protectedNative": [],
   "native": {
     "v2_codeUrl": "",
+    "usePolling": false,
+    "useTelemetryQuery": false,
     "interval": 5,
-    "forceUpdate": true,
+    "forceUpdate": false,
     "skip12VCheck": false,
     "locationUpdate": true
   },

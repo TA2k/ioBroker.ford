@@ -70,9 +70,9 @@
 
       <!-- For example columns with settings: -->
       <div class="row">
-        <h2 class="translate">
-          Please check your 12V regularly when you use the adapter. Bitte auf die 12V Batterie achten, wenn du den Adapter benutzt.
-        </h2>
+        <h4 class="translate">
+          Empfehlung: Alle Polling-Optionen deaktiviert lassen (wie ha-fordpass). Daten kommen via WebSocket Push-Events.
+        </h4>
       </div>
 
       <div class="row">
@@ -113,17 +113,27 @@
         </div>
       </div>
       <div class="row">
+        <div class="col s12">
+          <p>
+            <label>
+              <input type="checkbox" class="value filled-in" id="usePolling" />
+              <span class="translate">API-Polling aktivieren (usePolling) - Deaktiviert: nur WebSocket Push-Events wie ha-fordpass. Aktiviert: zusätzliches Polling im Intervall.</span>
+            </label>
+          </p>
+        </div>
+      </div>
+      <div class="row">
         <div class="col s2 input-field">
           <input type="number" class="value" id="interval" />
-          <label for="interval" class="translate">Update interval in minutes</label>
+          <label for="interval" class="translate">Polling-Intervall in Minuten (interval) - nur wenn Polling aktiviert</label>
         </div>
       </div>
       <div class="row">
         <div class="col s12">
           <p>
             <label>
-              <input type="checkbox" class="value filled-in" id="locationUpdate" />
-              <span class="translate">Fahrzeugort abfragen. Deaktivieren um geringeren Updateinterval zu erlauben.</span>
+              <input type="checkbox" class="value filled-in" id="useTelemetryQuery" />
+              <span class="translate">Telemetrie-Query bei Polling (useTelemetryQuery) - POST an /v1beta/telemetry/.../query. Liefert metrics (batteryVoltage, odometer, tirePressure, fuelLevel, etc.), states (doors, windows, ignition), events. ha-fordpass nutzt diesen Endpoint NICHT.</span>
             </label>
           </p>
         </div>
@@ -133,7 +143,17 @@
           <p>
             <label>
               <input type="checkbox" class="value filled-in" id="forceUpdate" />
-              <span class="translate">Update vom Fahrzeug bei jedem Interval anfordern. Kann 12V Batterie entleeren.</span>
+              <span class="translate">Wake-Up bei Polling (forceUpdate) - statusRefresh Command mit wakeUp=true. Kann 12V Batterie entleeren.</span>
+            </label>
+          </p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col s12">
+          <p>
+            <label>
+              <input type="checkbox" class="value filled-in" id="locationUpdate" />
+              <span class="translate">Fahrzeugort abfragen (locationUpdate).</span>
             </label>
           </p>
         </div>
