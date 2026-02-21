@@ -183,20 +183,28 @@ class Ford extends utils.Adapter {
     if (this.session.access_token) {
       await this.getVehicles();
       await this.cleanObjects();
+
+      // Initial status fetch (one-time only)
       await this.updateVehicles();
-      // Reset skipForceUpdate after first update so subsequent intervals do force updates
-     // this.skipForceUpdate = false;
 
       // Connect WebSocket for real-time updates (for each vehicle)
       for (const vin of this.vinArray) {
         await this.connectWebSocket(vin);
       }
 
-      this.updateInterval = setInterval(async () => {
-        await this.updateVehicles();
-      }, this.config.interval * 60 * 1000);
+      // Only enable polling if explicitly configured (default: WebSocket only like ha-fordpass)
+      if (this.config.usePolling) {
+        this.log.info(`Polling enabled (usePolling=true) - interval: ${this.config.interval} minutes`);
+        this.log.debug(`forceUpdate=${this.config.forceUpdate}, locationUpdate=${this.config.locationUpdate}`);
+        this.updateInterval = setInterval(async () => {
+          this.log.debug('Polling interval triggered - calling updateVehicles()');
+          await this.updateVehicles();
+        }, this.config.interval * 60 * 1000);
+      } else {
+        this.log.info('WebSocket-only mode (usePolling=false) - no polling, using push events only');
+      }
 
-      // Refresh all tokens (Ford + Autonomic) every 28.5 minutes and reconnect WebSocket
+      // Refresh all tokens (Ford + Autonomic) every 28.5 minutes
       this.refreshTokenInterval = setInterval(() => {
         this.refreshAllTokens();
       }, 28.5 * 60 * 1000);
@@ -851,8 +859,13 @@ class Ford extends utils.Adapter {
             }
           });
       }
+      // Telemetry Query - only if useTelemetryQuery is enabled (ha-fordpass does NOT do this)
+      if (!this.config.useTelemetryQuery) {
+        this.log.debug('Telemetry query disabled (useTelemetryQuery=false) - skipping statusQuery POST');
+        return;
+      }
       statusArray.forEach(async (element) => {
-        this.log.debug('Updating ' + element.path + ' for ' + vin);
+        this.log.debug('Telemetry query: ' + element.path + ' for ' + vin);
         const url = element.url.replace('$vin', vin);
         if (this.ignoredAPI.indexOf(element.path) !== -1) {
           return;
@@ -1131,7 +1144,7 @@ class Ford extends utils.Adapter {
    * Autonomic token is refreshed automatically by wsTokenRefreshInterval
    */
   async refreshAllTokens() {
-    this.log.debug('Refreshing Ford token...');
+    this.log.debug('Scheduled Ford token refresh (every 28.5 min)...');
 
     // Refresh Ford token (Autonomic token is managed by checkAndRefreshAutonomToken)
     const fordSuccess = await this.refreshToken();
@@ -1142,7 +1155,7 @@ class Ford extends utils.Adapter {
 
     // Ford token refreshed - Autonomic token will be refreshed automatically
     // when checkAndRefreshAutonomToken detects it's about to expire
-    this.log.debug('Ford token refreshed');
+    this.log.debug('Ford token refreshed successfully');
   }
 
   /**
@@ -1194,11 +1207,14 @@ class Ford extends utils.Adapter {
     };
 
     this.log.debug('Connecting WebSocket with native https upgrade (Python-compatible TLS)');
+    this.log.debug(`WebSocket URL: wss://api.autonomic.ai${options.path}`);
+    this.log.debug(`WebSocket headers: ${JSON.stringify(headers)}`);
 
     const req = https.request(options);
 
     req.on('upgrade', (res, socket) => {
       this.log.info(`WebSocket connected for ${vin}`);
+      this.log.debug(`WebSocket upgrade response status: ${res.statusCode}`);
       this.wsSocket = socket;
       this.wsCurrentToken = this.autonom.access_token;
 
@@ -1376,15 +1392,17 @@ class Ford extends utils.Adapter {
   async handleWsMessage(vin, payload) {
     try {
       const message = JSON.parse(payload.toString());
-      this.log.debug(`WebSocket message: ${JSON.stringify(message)}`);
+      this.log.debug(`WebSocket message received (${payload.length} bytes)`);
+      this.log.debug(`WebSocket message content: ${JSON.stringify(message).substring(0, 500)}`);
 
       if (message._httpStatus) {
-        this.log.debug(`WebSocket HTTP status: ${message._httpStatus}`);
+        this.log.debug(`WebSocket HTTP status response: ${message._httpStatus}`);
       } else if (message._error) {
-        this.log.warn(`WebSocket error: ${JSON.stringify(message._error)}`);
+        this.log.warn(`WebSocket error response: ${JSON.stringify(message._error)}`);
       } else if (message._data) {
         const wsData = message._data;
-        this.log.debug(`WebSocket data received for ${vin}`);
+        this.log.debug(`WebSocket push event received for ${vin} - updating states`);
+        this.log.debug(`WebSocket data keys: ${Object.keys(wsData).join(', ')}`);
 
         await this.json2iob.parse(vin + '.statusQuery', wsData, {
           forceIndex: true,
@@ -1400,6 +1418,8 @@ class Ford extends utils.Adapter {
           this.last12V = current12V;
         }
       } else if (message.metrics || message.states || message.events) {
+        this.log.debug(`WebSocket push event (direct format) received for ${vin} - updating states`);
+        this.log.debug(`WebSocket data keys: ${Object.keys(message).join(', ')}`);
         await this.json2iob.parse(vin + '.statusQuery', message, {
           forceIndex: true,
           autoCast: true,
@@ -1413,9 +1433,12 @@ class Ford extends utils.Adapter {
           }
           this.last12V = current12V;
         }
+      } else {
+        this.log.debug(`WebSocket message type unknown - keys: ${Object.keys(message).join(', ')}`);
       }
     } catch (parseError) {
       this.log.debug(`Failed to parse WebSocket message: ${parseError}`);
+      this.log.debug(`Raw payload (first 200 bytes): ${payload.toString().substring(0, 200)}`);
     }
   }
 
@@ -1436,17 +1459,22 @@ class Ford extends utils.Adapter {
    * Check if Autonomic token needs refresh (45 seconds before expiry)
    */
   async checkAndRefreshAutonomToken() {
-    if (!this.autonomExpiresAt) return;
+    if (!this.autonomExpiresAt) {
+      this.log.debug('checkAndRefreshAutonomToken: no expiry time set');
+      return;
+    }
 
     const timeUntilExpiry = this.autonomExpiresAt - Date.now();
     const secondsUntilExpiry = Math.floor(timeUntilExpiry / 1000);
+
+    this.log.debug(`Autonomic token check: expires in ${secondsUntilExpiry}s`);
 
     if (secondsUntilExpiry < 45) {
       this.log.debug(`Autonomic token expires in ${secondsUntilExpiry}s - refreshing...`);
       await this.getAutonomToken();
 
       if (this.autonom && this.autonom.access_token) {
-        this.log.debug('Autonomic token refreshed, updating WebSocket...');
+        this.log.debug('Autonomic token refreshed, updating WebSocket token...');
         this.updateWebSocketToken();
       }
     }
