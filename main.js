@@ -181,13 +181,36 @@ class Ford extends utils.Adapter {
     }
 
     if (this.session.access_token) {
+      // Log active options at startup
+      this.log.info('========================================');
+      this.log.info('Ford Adapter Starting');
+      this.log.info('========================================');
+      this.log.info(`usePolling: ${this.config.usePolling ? 'ON' : 'OFF'}`);
+      if (this.config.usePolling) {
+        this.log.info(`  interval: ${this.config.interval} minutes`);
+        this.log.info(`  forceUpdate (wakeUp): ${this.config.forceUpdate ? 'ON' : 'OFF'}`);
+        this.log.info(`  useTelemetryQuery: ${this.config.useTelemetryQuery ? 'ON' : 'OFF'}`);
+        this.log.info(`  locationUpdate: ${this.config.locationUpdate ? 'ON' : 'OFF'}`);
+      }
+      this.log.info(`skip12VCheck: ${this.config.skip12VCheck ? 'ON' : 'OFF'}`);
+      this.log.info('========================================');
+
       await this.getVehicles();
       await this.cleanObjects();
 
-      // Initial status fetch (one-time only)
-      await this.updateVehicles();
+      // Initial status fetch - DISABLED: ha-fordpass does NOT do this at startup
+      // They rely on WebSocket push events only. This may trigger account blocking.
+      // await this.updateVehicles();
+
+      // Get initial Autonomic token for WebSocket
+      await this.getAutonomToken();
+      if (!this.autonom) {
+        this.log.error('Failed to get Autonomic token - cannot connect WebSocket');
+        return;
+      }
 
       // Connect WebSocket for real-time updates (for each vehicle)
+      // ha-fordpass ONLY uses WebSocket for updates - NO initial API polling
       for (const vin of this.vinArray) {
         await this.connectWebSocket(vin);
       }
@@ -204,10 +227,9 @@ class Ford extends utils.Adapter {
         this.log.info('WebSocket-only mode (usePolling=false) - no polling, using push events only');
       }
 
-      // Refresh all tokens (Ford + Autonomic) every 28.5 minutes
-      this.refreshTokenInterval = setInterval(() => {
-        this.refreshAllTokens();
-      }, 28.5 * 60 * 1000);
+      // NO fixed Ford token refresh interval - ha-fordpass only refreshes on-demand when expired
+      // Autonomic token is checked every 30s via wsTokenRefreshInterval (45s before expiry)
+      // Ford token will be refreshed when Autonomic token exchange needs it
     }
   }
   async refreshTokenApi() {
@@ -1051,38 +1073,86 @@ class Ford extends utils.Adapter {
     };
   }
 
+  /**
+   * Check if Ford token is expired and refresh if needed (like ha-fordpass __ensure_valid_tokens)
+   * Ford token typically expires after 30 minutes
+   */
+  async ensureValidFordToken() {
+    if (!this.fordExpiresAt) {
+      this.log.debug('ensureValidFordToken: no expiry time set, assuming token is valid');
+      return;
+    }
+
+    const now = Date.now();
+    const secondsUntilExpiry = Math.floor((this.fordExpiresAt - now) / 1000);
+
+    // Refresh if expired or will expire in next 30 seconds
+    if (now + 30000 > this.fordExpiresAt) {
+      this.log.info(`Ford token expired or expiring soon (${secondsUntilExpiry}s) - refreshing...`);
+      await this.refreshToken();
+    } else {
+      this.log.debug(`Ford token valid for ${secondsUntilExpiry}s`);
+    }
+  }
+
   async getAutonomToken() {
-    await this.requestClient({
-      method: 'post',
-      url: 'https://accounts.autonomic.ai/v1/auth/oidc/token',
-      headers: {
-        accept: '*/*',
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-      data: {
-        subject_token: this.session.access_token,
-        subject_issuer: 'fordpass',
-        client_id: 'fordpass-prod',
-        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-        subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
-      },
-    })
-      .then((res) => {
-        this.log.debug(JSON.stringify(res.data));
-        this.autonom = res.data;
-        // Track token expiry time (expires_in is in seconds)
-        if (res.data.expires_in) {
-          this.autonomExpiresAt = Date.now() + res.data.expires_in * 1000;
-          this.log.debug(`Autonomic token expires at: ${new Date(this.autonomExpiresAt).toISOString()}`);
-        }
-        return res.data;
-      })
-      .catch((error) => {
-        this.log.error(error);
-        if (error.response) {
-          this.log.error(JSON.stringify(error.response.data));
-        }
+    // Check if Ford token needs refresh first (like ha-fordpass __ensure_valid_tokens)
+    await this.ensureValidFordToken();
+
+    try {
+      const res = await this.requestClient({
+        method: 'post',
+        url: 'https://accounts.autonomic.ai/v1/auth/oidc/token',
+        headers: {
+          accept: '*/*',
+          'content-type': 'application/x-www-form-urlencoded',
+        },
+        data: {
+          subject_token: this.session.access_token,
+          subject_issuer: 'fordpass',
+          client_id: 'fordpass-prod',
+          grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+          subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
+        },
       });
+
+      this.log.debug(JSON.stringify(res.data));
+      this.autonom = res.data;
+      // Track token expiry time (expires_in is in seconds)
+      if (res.data.expires_in) {
+        this.autonomExpiresAt = Date.now() + res.data.expires_in * 1000;
+        this.log.debug(`Autonomic token expires at: ${new Date(this.autonomExpiresAt).toISOString()}`);
+      }
+      return true;
+    } catch (error) {
+      this.log.error('Autonomic token exchange failed');
+      if (error.response) {
+        this.log.error(JSON.stringify(error.response.data));
+        // 401 means Ford token is invalid/blocked - stop adapter
+        if (error.response.status === 401) {
+          this.log.error('========================================');
+          this.log.error('ACCOUNT BLOCKED OR TOKEN INVALID');
+          this.log.error('========================================');
+          this.log.error('Your Ford account appears to be blocked or the token is invalid.');
+          this.log.error('Please wait some time and then:');
+          this.log.error('1. Delete the authV2 state in ioBroker objects');
+          this.log.error('2. Restart the adapter to re-authenticate');
+          this.log.error('========================================');
+          this.autonom = null;
+          this.autonomExpiresAt = null;
+          // Stop all activity - don't keep retrying
+          this.setState('info.connection', false, true);
+          this.disconnectWebSocket();
+          this.clearAllIntervals();
+          return false;
+        }
+      } else {
+        this.log.error(error);
+      }
+      this.autonom = null;
+      this.autonomExpiresAt = null;
+      return false;
+    }
   }
 
   async refreshToken() {
@@ -1099,6 +1169,11 @@ class Ford extends utils.Adapter {
       this.log.debug(JSON.stringify(res.data));
       this.session = res.data;
       this.sessionV2 = res.data;
+      // Track Ford token expiry time
+      if (res.data.expires_in) {
+        this.fordExpiresAt = Date.now() + res.data.expires_in * 1000;
+        this.log.debug(`Ford token expires at: ${new Date(this.fordExpiresAt).toISOString()}`);
+      }
       this.setState('info.connection', true, true);
       this.log.info('Ford token refresh successful');
       this.log.debug(`Token expires in: ${Math.floor(this.session.expires_in / 60)} minutes`);
@@ -1124,7 +1199,27 @@ class Ford extends utils.Adapter {
         this.log.error(error.message);
       }
       if (error && typeof error === 'object' && 'response' in error) {
-        this.log.error(JSON.stringify(error.response));
+        // Don't stringify error.response directly - it has circular references
+        const resp = error.response;
+        if (resp && resp.data) {
+          this.log.error(`HTTP Status: ${resp.status}`);
+          this.log.error(JSON.stringify(resp.data));
+        }
+        // 400/401 means token is invalid - account likely blocked, stop retrying
+        if (resp && (resp.status === 400 || resp.status === 401)) {
+          this.log.error('========================================');
+          this.log.error('ACCOUNT BLOCKED OR TOKEN INVALID');
+          this.log.error('========================================');
+          this.log.error('Your Ford account appears to be blocked or the token is invalid.');
+          this.log.error('Please wait some time and then:');
+          this.log.error('1. Delete the authV2 state in ioBroker objects');
+          this.log.error('2. Restart the adapter to re-authenticate');
+          this.log.error('========================================');
+          this.setState('info.connection', false, true);
+          this.disconnectWebSocket();
+          this.clearAllIntervals();
+          return false;
+        }
       }
 
       this.log.error('Token refresh failed. Please re-authenticate via adapter settings.');
@@ -1140,22 +1235,19 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Refresh Ford token (called every 28.5 minutes)
-   * Autonomic token is refreshed automatically by wsTokenRefreshInterval
+   * Retry token refresh after failure (called from error handler)
    */
   async refreshAllTokens() {
-    this.log.debug('Scheduled Ford token refresh (every 28.5 min)...');
+    this.log.debug('Retry Ford token refresh after previous failure...');
 
-    // Refresh Ford token (Autonomic token is managed by checkAndRefreshAutonomToken)
+    // Refresh Ford token
     const fordSuccess = await this.refreshToken();
     if (!fordSuccess) {
-      this.log.error('Ford token refresh failed');
+      this.log.error('Ford token refresh retry failed');
       return;
     }
 
-    // Ford token refreshed - Autonomic token will be refreshed automatically
-    // when checkAndRefreshAutonomToken detects it's about to expire
-    this.log.debug('Ford token refreshed successfully');
+    this.log.info('Ford token refresh retry successful');
   }
 
   /**
@@ -1471,11 +1563,14 @@ class Ford extends utils.Adapter {
 
     if (secondsUntilExpiry < 45) {
       this.log.debug(`Autonomic token expires in ${secondsUntilExpiry}s - refreshing...`);
-      await this.getAutonomToken();
+      const success = await this.getAutonomToken();
 
-      if (this.autonom && this.autonom.access_token) {
+      if (success && this.autonom && this.autonom.access_token) {
         this.log.debug('Autonomic token refreshed, updating WebSocket token...');
         this.updateWebSocketToken();
+      } else {
+        // Token refresh failed - getAutonomToken already handles stopping the adapter on 401
+        this.log.warn('Autonomic token refresh failed - not updating WebSocket token');
       }
     }
   }
@@ -1633,6 +1728,11 @@ class Ford extends utils.Adapter {
 
       this.sessionV2 = finalTokenResponse.data;
       this.session = finalTokenResponse.data;
+      // Track Ford token expiry time
+      if (finalTokenResponse.data.expires_in) {
+        this.fordExpiresAt = Date.now() + finalTokenResponse.data.expires_in * 1000;
+        this.log.debug(`Ford token expires at: ${new Date(this.fordExpiresAt).toISOString()}`);
+      }
       this.setState('info.connection', true, true);
       this.log.info('Token exchange successful');
       this.log.info(`Token expires in: ${Math.floor(this.sessionV2.expires_in / 60)} minutes`);
@@ -1664,6 +1764,22 @@ class Ford extends utils.Adapter {
     }
   }
   /**
+   * Clear all polling/refresh intervals and timeouts
+   */
+  clearAllIntervals() {
+    clearTimeout(this.refreshTimeout);
+    this.refreshTimeout = null;
+    this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
+    this.reLoginTimeout = null;
+    this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
+    this.refreshTokenTimeout = null;
+    this.updateInterval && clearInterval(this.updateInterval);
+    this.updateInterval = null;
+    this.refreshTokenInterval && clearInterval(this.refreshTokenInterval);
+    this.refreshTokenInterval = null;
+  }
+
+  /**
    * Is called when adapter shuts down - callback has to be called under any circumstances!
    * @param {() => void} callback
    */
@@ -1672,11 +1788,7 @@ class Ford extends utils.Adapter {
       this.isUnloading = true;
       this.setState('info.connection', false, true);
       this.disconnectWebSocket();
-      clearTimeout(this.refreshTimeout);
-      this.reLoginTimeout && clearTimeout(this.reLoginTimeout);
-      this.refreshTokenTimeout && clearTimeout(this.refreshTokenTimeout);
-      this.updateInterval && clearInterval(this.updateInterval);
-      this.refreshTokenInterval && clearInterval(this.refreshTokenInterval);
+      this.clearAllIntervals();
 
       // Clear v2_codeUrl after successful login to avoid reusing consumed code on next start
       if (this.session && this.session.access_token) {
