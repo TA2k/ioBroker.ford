@@ -187,7 +187,7 @@
     "interval": 5,
     "forceUpdate": false,
     "skip12VCheck": false,
-    "locationUpdate": true
+    "pollLocation": false
   },
   "objects": [],
   "instanceObjects": [

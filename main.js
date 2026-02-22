@@ -190,7 +190,7 @@ class Ford extends utils.Adapter {
         this.log.info(`  interval: ${this.config.interval} minutes`);
         this.log.info(`  forceUpdate (wakeUp): ${this.config.forceUpdate ? 'ON' : 'OFF'}`);
         this.log.info(`  useTelemetryQuery: ${this.config.useTelemetryQuery ? 'ON' : 'OFF'}`);
-        this.log.info(`  locationUpdate: ${this.config.locationUpdate ? 'ON' : 'OFF'}`);
+        this.log.info(`  pollLocation: ${this.config.pollLocation ? 'ON' : 'OFF'}`);
       }
       this.log.info(`skip12VCheck: ${this.config.skip12VCheck ? 'ON' : 'OFF'}`);
       this.log.info('========================================');
@@ -219,7 +219,7 @@ class Ford extends utils.Adapter {
       // Only enable polling if explicitly configured (default: WebSocket only like ha-fordpass)
       if (this.config.usePolling) {
         this.log.info(`Polling enabled (usePolling=true) - interval: ${this.config.interval} minutes`);
-        this.log.debug(`forceUpdate=${this.config.forceUpdate}, locationUpdate=${this.config.locationUpdate}`);
+        this.log.debug(`forceUpdate=${this.config.forceUpdate}, pollLocation=${this.config.pollLocation}`);
         this.updateInterval = setInterval(async () => {
           this.log.debug('Polling interval triggered - calling updateVehicles()');
           await this.updateVehicles();
@@ -690,7 +690,7 @@ class Ford extends utils.Adapter {
             this.log.error(JSON.stringify(error.response.data));
           }
         });
-      if (this.config.locationUpdate) {
+      if (this.config.pollLocation) {
         await this.requestClient({
           method: 'get',
           url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/location`,
