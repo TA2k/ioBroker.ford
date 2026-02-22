@@ -198,8 +198,9 @@ class Ford extends utils.Adapter {
       await this.getVehicles();
       await this.cleanObjects();
 
-      // Initial status fetch - DISABLED: ha-fordpass does NOT do this at startup
-      // They rely on WebSocket push events only. This may trigger account blocking.
+      // Initial status fetch - DISABLED FOR TESTING
+      // ha-fordpass: GET /telemetry/sources/fordpass/vehicles/{vin} (ohne :query)
+      // APK: POST /v1beta/telemetry/sources/fordpass/vehicles/{vin}:query
       // await this.updateVehicles();
 
       // Get initial Autonomic token for WebSocket
