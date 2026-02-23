@@ -114,12 +114,8 @@
       </div>
       <div class="row">
         <div class="col s12">
-          <p>
-            <label>
-              <input type="checkbox" class="value filled-in" id="usePolling" />
-              <span class="translate">API-Polling aktivieren (usePolling) - Deaktiviert: nur WebSocket Push-Events wie ha-fordpass. Aktiviert: zusätzliches Polling im Intervall.</span>
-            </label>
-          </p>
+          <input class="value" id="usePolling" type="checkbox" />
+          <label class="translate" for="usePolling">API-Polling aktivieren (usePolling) - Deaktiviert: nur WebSocket Push-Events wie ha-fordpass. Aktiviert: zusätzliches Polling im Intervall.</label>
         </div>
       </div>
       <div class="row">
@@ -130,42 +126,26 @@
       </div>
       <div class="row">
         <div class="col s12">
-          <p>
-            <label>
-              <input type="checkbox" class="value filled-in" id="useTelemetryQuery" />
-              <span class="translate">Telemetrie-Query bei Polling (useTelemetryQuery) - POST an /v1beta/telemetry/.../query. Liefert metrics (batteryVoltage, odometer, tirePressure, fuelLevel, etc.), states (doors, windows, ignition), events. ha-fordpass nutzt diesen Endpoint NICHT.</span>
-            </label>
-          </p>
+          <input class="value" id="useTelemetryQuery" type="checkbox" />
+          <label class="translate" for="useTelemetryQuery">Telemetrie-Query bei Polling (useTelemetryQuery) - POST an /v1beta/telemetry/.../query. Liefert metrics (batteryVoltage, odometer, tirePressure, fuelLevel, etc.), states (doors, windows, ignition), events. ha-fordpass nutzt diesen Endpoint NICHT.</label>
         </div>
       </div>
       <div class="row">
         <div class="col s12">
-          <p>
-            <label>
-              <input type="checkbox" class="value filled-in" id="forceUpdate" />
-              <span class="translate">Wake-Up bei Polling (forceUpdate) - statusRefresh Command mit wakeUp=true. Kann 12V Batterie entleeren.</span>
-            </label>
-          </p>
+          <input class="value" id="forceUpdate" type="checkbox" />
+          <label class="translate" for="forceUpdate">Wake-Up bei Polling (forceUpdate) - statusRefresh Command mit wakeUp=true. Kann 12V Batterie entleeren.</label>
         </div>
       </div>
       <div class="row">
         <div class="col s12">
-          <p>
-            <label>
-              <input type="checkbox" class="value filled-in" id="pollLocation" />
-              <span class="translate">Fahrzeugort abfragen (locationUpdate).</span>
-            </label>
-          </p>
+          <input class="value" id="pollLocation" type="checkbox" />
+          <label class="translate" for="pollLocation">Fahrzeugort abfragen (locationUpdate).</label>
         </div>
       </div>
       <div class="row">
         <div class="col s12">
-          <p>
-            <label>
-              <input type="checkbox" class="value filled-in" id="skip12VCheck" />
-              <span class="translate">12V Battery Überprüfung deaktivieren.</span>
-            </label>
-          </p>
+          <input class="value" id="skip12VCheck" type="checkbox" />
+          <label class="translate" for="skip12VCheck">12V Battery Überprüfung deaktivieren.</label>
         </div>
       </div>
     </div>
