@@ -232,105 +232,10 @@ class Ford extends utils.Adapter {
       // Ford token will be refreshed when Autonomic token exchange needs it
     }
   }
-  async refreshTokenApi() {
-    this.log.debug('Refresh Token');
-    await this.requestClient({
-      method: 'post',
-      url: 'https://dah2vb2cprod.b2clogin.com/914d88b1-3523-4bf6-9be4-1b96b4f6f919/oauth2/v2.0/token?p=B2C_1A_signup_signin_common',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      data: {
-        grant_type: 'refresh_token',
-        client_id: this.config.clientId,
-        client_secret: this.config.secret,
-        refresh_token: this.session.refresh_token,
-      },
-    })
-      .then(async (res) => {
-        this.log.debug(JSON.stringify(res.data));
-        this.session = res.data;
-        this.setState('info.connection', true, true);
-        this.log.debug('Refresh Token successful');
-        await this.extendObjectAsync('authV2', {
-          type: 'state',
-          common: {
-            name: 'authV2',
-            type: 'string',
-            role: 'json',
-            read: true,
-            write: true,
-          },
-          native: {},
-        });
-        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
-      })
-      .catch((error) => {
-        this.log.error('Failed to refresh token');
-        this.log.error(error);
-        if (error.response) {
-          this.log.error(JSON.stringify(error.response.data));
-        }
-        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
-      });
-  }
-  async loginApi() {
-    const code = qs.parse(this.config.codeUrl.split('?')[1]).code;
 
-    await this.requestClient({
-      method: 'post',
-      url: 'https://dah2vb2cprod.b2clogin.com/914d88b1-3523-4bf6-9be4-1b96b4f6f919/oauth2/v2.0/token?p=B2C_1A_signup_signin_common',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      data: {
-        grant_type: 'authorization_code',
-        client_id: this.config.clientId,
-        client_secret: this.config.secret,
-        redirect_uri: 'https://localhost:3000',
-        code: code,
-      },
-    })
-      .then(async (res) => {
-        this.log.debug(JSON.stringify(res.data));
-        this.session = res.data;
-        this.setState('info.connection', true, true);
-        this.log.info('LoginAPI successful');
-        await this.extendObjectAsync('authV2', {
-          type: 'state',
-          common: {
-            name: 'authV2',
-            type: 'string',
-            role: 'state',
-            read: true,
-            write: true,
-          },
-          native: {},
-        });
-        await this.setStateAsync('authV2', { val: JSON.stringify(this.session), ack: true });
-      })
-      .catch(async (error) => {
-        this.log.error('Failed to get token. Please restart the adapter and do a new login');
-        this.log.warn('RECOMMENDATION: Delete the authV2 state and re-authenticate with a new login.');
-        await this.delObjectAsync('authV2');
-        const adapterConfig = 'system.adapter.' + this.name + '.' + this.instance;
-        const obj = await this.getForeignObjectAsync(adapterConfig);
-        if (obj) {
-          obj.native.connectUrl = '';
-          await this.setForeignObjectAsync(adapterConfig, obj);
-        } else {
-          this.log.error('no Adapterconfig found');
-        }
-        this.log.error(error);
-
-        if (error.response) {
-          this.log.error(JSON.stringify(error.response.data));
-          if (error.response.data.error_description && error.response.data.error_description.includes('grant has expired')) {
-            this.log.error('The code url is too old. Please provide a new one');
-          }
-        }
-      });
-  }
+  // Old B2C login methods removed - now using v2 OAuth flow:
+  // - exchangeCodeForTokenV2() for initial login
+  // - refreshToken() via cat-with-refresh-token endpoint
 
   async login() {
     // const [code_verifier, codeChallenge] = this.getCodeChallenge();
@@ -548,12 +453,7 @@ class Ford extends utils.Adapter {
       method: 'get',
       maxBodyLength: Infinity,
       url: 'https://api.mps.ford.com/api/fordconnect/v3/vehicles',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
-        Authorization: 'Bearer ' + this.session.access_token,
-      },
+      headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: 'application/json' }),
     })
       .then((res) => {
         this.log.debug(JSON.stringify(res.data));
@@ -622,12 +522,7 @@ class Ford extends utils.Adapter {
           this.requestClient({
             method: 'get',
             url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/vin`,
-            headers: {
-              Accept: '*/*',
-              'Content-Type': 'application/json',
-              'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
-              Authorization: 'Bearer ' + this.session.access_token,
-            },
+            headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
           })
             .then(async (res) => {
               this.log.debug(JSON.stringify(res.data));
@@ -667,12 +562,7 @@ class Ford extends utils.Adapter {
       await this.requestClient({
         method: 'get',
         url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}`,
-        headers: {
-          Accept: '*/*',
-          'Content-Type': 'application/json',
-          'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
-          Authorization: 'Bearer ' + this.session.access_token,
-        },
+        headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
       })
         .then((res) => {
           this.log.debug(JSON.stringify(res.data));
@@ -693,12 +583,7 @@ class Ford extends utils.Adapter {
         await this.requestClient({
           method: 'get',
           url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/location`,
-          headers: {
-            Accept: '*/*',
-            'Content-Type': 'application/json',
-            'Application-Id': 'AFDC085B-377A-4351-B23E-5E1D35FB3700',
-            Authorization: 'Bearer ' + this.session.access_token,
-          },
+          headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
         })
           .then((res) => {
             this.log.debug(JSON.stringify(res.data));
@@ -1028,12 +913,12 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Get base headers for Ford APIs (expdashboard, foundational, etc.)
-   * @param {{contentType?: string, withAppId?: boolean, withDynatrace?: boolean, withLocale?: boolean}} [options] - Additional options
+   * Get base headers for Ford APIs (expdashboard, foundational, fordconnect, etc.)
+   * @param {{contentType?: string, withAppId?: boolean, withDynatrace?: boolean, withLocale?: boolean, withAuth?: boolean, accept?: string}} [options] - Additional options
    * @returns {object} Headers object
    */
   getBaseHeaders(options) {
-    const { contentType = 'application/json', withAppId = true, withDynatrace = true, withLocale = false } = options || {};
+    const { contentType = 'application/json', withAppId = true, withDynatrace = true, withLocale = false, withAuth = false, accept = null } = options || {};
 
     const headers = {
       'Accept-Encoding': 'gzip',
@@ -1041,6 +926,10 @@ class Ford extends utils.Adapter {
       'Content-Type': contentType,
       'User-Agent': 'okhttp/4.12.0',
     };
+
+    if (accept) {
+      headers['Accept'] = accept;
+    }
 
     if (withAppId) {
       headers['Application-Id'] = this.appId;
@@ -1053,6 +942,10 @@ class Ford extends utils.Adapter {
     if (withLocale) {
       headers['countryCode'] = 'DEU';
       headers['locale'] = 'de-DE';
+    }
+
+    if (withAuth && this.session && this.session.access_token) {
+      headers['Authorization'] = 'Bearer ' + this.session.access_token;
     }
 
     return headers;
@@ -1100,12 +993,15 @@ class Ford extends utils.Adapter {
     await this.ensureValidFordToken();
 
     try {
+      // CRITICAL: Must use okhttp User-Agent - OkHttp's BridgeInterceptor adds this automatically
+      // See APK: okhttp3/internal/http/BridgeInterceptor.smali line 290: "okhttp/4.12.0"
       const res = await this.requestClient({
         method: 'post',
         url: 'https://accounts.autonomic.ai/v1/auth/oidc/token',
         headers: {
           accept: '*/*',
           'content-type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'okhttp/4.12.0',
         },
         data: {
           subject_token: this.session.access_token,
