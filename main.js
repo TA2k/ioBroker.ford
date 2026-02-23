@@ -15,6 +15,7 @@ const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
 const crypto = require('crypto');
 const https = require('https');
+const { Agent: UndiciAgent, request: undiciRequest } = require('undici');
 class Ford extends utils.Adapter {
   /**
    * @param {Partial<utils.AdapterOptions>} [options={}]
@@ -55,11 +56,6 @@ class Ford extends utils.Adapter {
       'ECDHE-RSA-AES128-GCM-SHA256',
     ].join(':');
 
-    // Dynatrace simulation - generate realistic looking headers
-    this.dynatraceServerId = Math.floor(Math.random() * 9000000000) + 1000000000;
-    this.dynatraceVisitorId = crypto.randomUUID();
-    this.dynatraceActionCounter = 0;
-
     // v2 OAuth config - PKCE will be loaded/generated in onReady
     this.v2Config = {
       oauth_id: '4566605f-43a7-400a-946e-89cc9fdb0bd7',
@@ -94,6 +90,14 @@ class Ford extends utils.Adapter {
     this.refreshTokenTimeout = null;
     this.json2iob = new Json2iob(this);
     this.last12V = 12.2;
+
+    // Undici agent with HTTP/2 support for token endpoints
+    this.undiciAgent = new UndiciAgent({
+      allowH2: true, // Enable HTTP/2
+      connect: {
+        rejectUnauthorized: true,
+      },
+    });
   }
 
   /**
@@ -426,26 +430,23 @@ class Ford extends utils.Adapter {
     if (!midToken) {
       return;
     }
-    await this.requestClient({
-      method: 'post',
-      url: 'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
-      headers: this.getBaseHeaders(),
-      data: { idpToken: midToken.access_token },
-    })
-      .then((res) => {
-        this.log.debug(JSON.stringify(res.data));
-        this.session = res.data;
-        this.setState('info.connection', true, true);
-        this.log.info('Login successful');
-        return res.data;
-      })
-      .catch((error) => {
-        this.log.error('Code Token failed');
-        this.log.error(error);
-        if (error.response) {
-          this.log.error(JSON.stringify(error.response.data));
-        }
-      });
+    // Use undici with HTTP/2 support for token exchange
+    try {
+      const tokenData = await this.undiciTokenRequest(
+        'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
+        { idpToken: midToken.access_token },
+      );
+      this.log.debug(JSON.stringify(tokenData));
+      this.session = tokenData;
+      this.setState('info.connection', true, true);
+      this.log.info('Login successful');
+    } catch (error) {
+      this.log.error('Code Token failed');
+      this.log.error(error);
+      if (error.response) {
+        this.log.error(JSON.stringify(error.response.data));
+      }
+    }
   }
 
   async getVehiclesApi() {
@@ -453,7 +454,7 @@ class Ford extends utils.Adapter {
       method: 'get',
       maxBodyLength: Infinity,
       url: 'https://api.mps.ford.com/api/fordconnect/v3/vehicles',
-      headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: 'application/json' }),
+      headers: this.getBaseHeaders({ withAuth: true, accept: 'application/json' }),
     })
       .then((res) => {
         this.log.debug(JSON.stringify(res.data));
@@ -522,7 +523,7 @@ class Ford extends utils.Adapter {
           this.requestClient({
             method: 'get',
             url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/vin`,
-            headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
+            headers: this.getBaseHeaders({ withAuth: true, accept: '*/*' }),
           })
             .then(async (res) => {
               this.log.debug(JSON.stringify(res.data));
@@ -562,7 +563,7 @@ class Ford extends utils.Adapter {
       await this.requestClient({
         method: 'get',
         url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}`,
-        headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
+        headers: this.getBaseHeaders({ withAuth: true, accept: '*/*' }),
       })
         .then((res) => {
           this.log.debug(JSON.stringify(res.data));
@@ -583,7 +584,7 @@ class Ford extends utils.Adapter {
         await this.requestClient({
           method: 'get',
           url: `https://api.mps.ford.com/api/fordconnect/v3/vehicles/${vin}/location`,
-          headers: this.getBaseHeaders({ withDynatrace: false, withAuth: true, accept: '*/*' }),
+          headers: this.getBaseHeaders({ withAuth: true, accept: '*/*' }),
         })
           .then((res) => {
             this.log.debug(JSON.stringify(res.data));
@@ -604,7 +605,8 @@ class Ford extends utils.Adapter {
     }
   }
   async getVehicles() {
-    // Ford expdashboard API needs: auth-token, Application-Id, countryCode, locale, x-dynatrace
+    // Ford expdashboard API needs: auth-token, Application-Id, countryCode, locale
+    // NOTE: ha-fordpass does NOT send x-dynatrace header - removed to match behavior
     const headers = {
       ...this.getBaseHeaders({ withLocale: true }),
       'auth-token': this.session.access_token,
@@ -899,26 +901,14 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Generate a realistic Dynatrace x-dynatrace header
-   * Format: MT_<version>_<serverId>_<actionId>-<depth>_<visitorId>_<actionId>_<timing>_<sequenceNumber>
-   */
-  generateDynatraceHeader() {
-    this.dynatraceActionCounter++;
-    const actionId = this.dynatraceActionCounter;
-    const depth = 0;
-    const timing = Math.floor(Math.random() * 1000) + 100;
-    const sequence = Math.floor(Math.random() * 500);
-
-    return `MT_3_${this.dynatraceServerId}_${actionId}-${depth}_${this.dynatraceVisitorId}_${actionId}_${timing}_${sequence}`;
-  }
-
-  /**
    * Get base headers for Ford APIs (expdashboard, foundational, fordconnect, etc.)
-   * @param {{contentType?: string, withAppId?: boolean, withDynatrace?: boolean, withLocale?: boolean, withAuth?: boolean, accept?: string}} [options] - Additional options
+   * NOTE: x-dynatrace header removed - ha-fordpass does NOT send this header
+   * @param {{contentType?: string, withAppId?: boolean, withLocale?: boolean, withAuth?: boolean, accept?: string}} [options] - Additional options
    * @returns {object} Headers object
    */
   getBaseHeaders(options) {
-    const { contentType = 'application/json', withAppId = true, withDynatrace = true, withLocale = false, withAuth = false, accept = null } = options || {};
+    // NOTE: withDynatrace removed - ha-fordpass does NOT send x-dynatrace header
+    const { contentType = 'application/json', withAppId = true, withLocale = false, withAuth = false, accept = null } = options || {};
 
     const headers = {
       'Accept-Encoding': 'gzip',
@@ -935,9 +925,7 @@ class Ford extends utils.Adapter {
       headers['Application-Id'] = this.appId;
     }
 
-    if (withDynatrace) {
-      headers['x-dynatrace'] = this.generateDynatraceHeader();
-    }
+    // x-dynatrace removed - ha-fordpass does NOT send this header
 
     if (withLocale) {
       headers['countryCode'] = 'DEU';
@@ -964,6 +952,50 @@ class Ford extends utils.Adapter {
       'User-Agent': 'okhttp/4.12.0',
       Authorization: 'Bearer ' + this.autonom.access_token,
     };
+  }
+
+  /**
+   * Make token request using undici with HTTP/2 support
+   * This is used for Ford token endpoints to match ha-fordpass behavior more closely
+   * @param {string} url - The URL to request
+   * @param {object} body - The request body (will be JSON stringified)
+   * @param {object} [extraHeaders] - Additional headers to include
+   * @returns {Promise<object>} Response data
+   */
+  async undiciTokenRequest(url, body, extraHeaders = {}) {
+    const headers = {
+      'accept-encoding': 'gzip',
+      connection: 'keep-alive',
+      'content-type': 'application/json',
+      'user-agent': 'okhttp/4.12.0',
+      'application-id': this.appId,
+      ...extraHeaders,
+    };
+
+    const bodyStr = JSON.stringify(body);
+
+    this.log.debug(`undici request to ${url}`);
+    this.log.debug(`undici headers: ${JSON.stringify(headers)}`);
+
+    const { statusCode, headers: resHeaders, body: resBody } = await undiciRequest(url, {
+      method: 'POST',
+      headers: headers,
+      body: bodyStr,
+      dispatcher: this.undiciAgent,
+    });
+
+    const data = await resBody.json();
+
+    this.log.debug(`undici response status: ${statusCode}`);
+    this.log.debug(`undici response headers: ${JSON.stringify(resHeaders)}`);
+
+    if (statusCode >= 400) {
+      const error = new Error(`HTTP ${statusCode}`);
+      error.response = { status: statusCode, data: data };
+      throw error;
+    }
+
+    return data;
   }
 
   /**
@@ -1055,19 +1087,18 @@ class Ford extends utils.Adapter {
     this.log.debug('Refreshing Ford access token...');
 
     try {
-      const res = await this.requestClient({
-        method: 'post',
-        url: 'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
-        headers: this.getBaseHeaders(),
-        data: { refresh_token: this.session.refresh_token },
-      });
+      // Use undici with HTTP/2 support for token refresh
+      const data = await this.undiciTokenRequest(
+        'https://api.foundational.ford.com/api/token/v2/cat-with-refresh-token',
+        { refresh_token: this.session.refresh_token },
+      );
 
-      this.log.debug(JSON.stringify(res.data));
-      this.session = res.data;
-      this.sessionV2 = res.data;
+      this.log.debug(JSON.stringify(data));
+      this.session = data;
+      this.sessionV2 = data;
       // Track Ford token expiry time
-      if (res.data.expires_in) {
-        this.fordExpiresAt = Date.now() + res.data.expires_in * 1000;
+      if (data.expires_in) {
+        this.fordExpiresAt = Date.now() + data.expires_in * 1000;
         this.log.debug(`Ford token expires at: ${new Date(this.fordExpiresAt).toISOString()}`);
       }
       this.setState('info.connection', true, true);
@@ -1540,12 +1571,10 @@ class Ford extends utils.Adapter {
   }
 
   getCodeChallenge() {
-    let hash = '';
-    let result = '';
     const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_-';
-    result = '';
+    let result = '';
     for (let i = 171; i > 0; --i) result += chars[Math.floor(Math.random() * chars.length)];
-    hash = crypto.createHash('sha256').update(result).digest('base64');
+    let hash = crypto.createHash('sha256').update(result).digest('base64');
     hash = hash.replace(/\+/g, '-').replace(/\//g, '_').replace(/==/g, '=');
 
     return [result, hash];
@@ -1603,19 +1632,17 @@ class Ford extends utils.Adapter {
       const firstToken = response.data;
       this.log.info('OAuth token received, exchanging for FordConnect token...');
 
-      const finalTokenResponse = await this.requestClient({
-        method: 'post',
-        url: 'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
-        headers: this.getBaseHeaders(),
-        data: JSON.stringify({ idpToken: firstToken.access_token }),
-        timeout: 30000,
-      });
+      // Use undici with HTTP/2 support for token exchange
+      const finalTokenData = await this.undiciTokenRequest(
+        'https://api.foundational.ford.com/api/token/v2/cat-with-b2c-access-token',
+        { idpToken: firstToken.access_token },
+      );
 
-      this.sessionV2 = finalTokenResponse.data;
-      this.session = finalTokenResponse.data;
+      this.sessionV2 = finalTokenData;
+      this.session = finalTokenData;
       // Track Ford token expiry time
-      if (finalTokenResponse.data.expires_in) {
-        this.fordExpiresAt = Date.now() + finalTokenResponse.data.expires_in * 1000;
+      if (finalTokenData.expires_in) {
+        this.fordExpiresAt = Date.now() + finalTokenData.expires_in * 1000;
         this.log.debug(`Ford token expires at: ${new Date(this.fordExpiresAt).toISOString()}`);
       }
       this.setState('info.connection', true, true);

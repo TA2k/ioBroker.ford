@@ -8,7 +8,10 @@ module.exports = [
       '**/.eslintrc.js',
       '**/node_modules/**',
       '**/build/**',
-      '**/dist/**'
+      '**/dist/**',
+      '**/customw/**',
+      '**/fordpass-*.xapk.out/**',
+      '**/ha-fordpass-main/**'
     ]
   },
   {
