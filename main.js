@@ -37,7 +37,6 @@ class Ford extends utils.Adapter {
     this.wsSocket = null;
     this.wsReconnectTimeout = null;
     this.wsHeartbeatInterval = null;
-    this.wsPingInterval = null;
     this.wsTokenRefreshInterval = null;
     this.autonomExpiresAt = null;
     this.wsCurrentToken = null;
@@ -1311,15 +1310,8 @@ class Ford extends utils.Adapter {
       this.wsSocket = socket;
       this.wsCurrentToken = this.autonom.access_token;
 
-      // Setup ping interval (every 30 seconds like ha-fordpass)
-      this.wsPingInterval = setInterval(() => {
-        if (this.wsSocket) {
-          this.log.debug('Sending WebSocket ping');
-          const mask = crypto.randomBytes(4);
-          // Masked ping frame: opcode 9
-          this.wsSocket.write(Buffer.concat([Buffer.from([0x89, 0x80]), mask]));
-        }
-      }, 30000);
+      // NO ping interval - ha-fordpass and APK do NOT send WebSocket pings
+      // Empty {} messages from server are used as heartbeat trigger for token refresh check
 
       // Setup token refresh check (every 30 seconds)
       this.wsTokenRefreshInterval = setInterval(() => {
@@ -1627,10 +1619,6 @@ class Ford extends utils.Adapter {
     if (this.wsHeartbeatInterval) {
       clearInterval(this.wsHeartbeatInterval);
       this.wsHeartbeatInterval = null;
-    }
-    if (this.wsPingInterval) {
-      clearInterval(this.wsPingInterval);
-      this.wsPingInterval = null;
     }
     if (this.wsTokenRefreshInterval) {
       clearInterval(this.wsTokenRefreshInterval);
