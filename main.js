@@ -91,9 +91,9 @@ class Ford extends utils.Adapter {
     this.json2iob = new Json2iob(this);
     this.last12V = 12.2;
 
-    // Undici agent with HTTP/2 support for token endpoints
+    // Undici agent with HTTP/2 support (like APK's OkHttp)
     this.undiciAgent = new UndiciAgent({
-      allowH2: true, // Enable HTTP/2
+      allowH2: true, // APK uses OkHttp which supports HTTP/2
       connect: {
         rejectUnauthorized: true,
       },
@@ -231,9 +231,10 @@ class Ford extends utils.Adapter {
         this.log.info('WebSocket-only mode (usePolling=false) - no polling, using push events only');
       }
 
-      // NO fixed Ford token refresh interval - ha-fordpass only refreshes on-demand when expired
-      // Autonomic token is checked every 30s via wsTokenRefreshInterval (45s before expiry)
-      // Ford token will be refreshed when Autonomic token exchange needs it
+      // NO fixed token refresh intervals - ha-fordpass only refreshes when triggered by:
+      // 1. Empty {} heartbeat message from WebSocket server
+      // 2. Autonomic token near expiry (< 45s)
+      // 3. Ford token expired when Autonomic token exchange needs it
     }
   }
 
@@ -907,19 +908,21 @@ class Ford extends utils.Adapter {
    * @returns {object} Headers object
    */
   getBaseHeaders(options) {
-    // NOTE: withDynatrace removed - ha-fordpass does NOT send x-dynatrace header
+    // Header order like OkHttp's BridgeInterceptor (BridgeInterceptor.smali)
+    // Order: Content-Type, Host, Connection, Accept-Encoding, Cookie, User-Agent
     const { contentType = 'application/json', withAppId = true, withLocale = false, withAuth = false, accept = null } = options || {};
 
     const headers = {
-      'Accept-Encoding': 'gzip',
-      Connection: 'Keep-Alive',
       'Content-Type': contentType,
-      'User-Agent': 'okhttp/4.12.0',
     };
 
     if (accept) {
       headers['Accept'] = accept;
     }
+
+    headers['Connection'] = 'Keep-Alive';
+    headers['Accept-Encoding'] = 'gzip';
+    headers['User-Agent'] = 'okhttp/4.12.0';
 
     if (withAppId) {
       headers['Application-Id'] = this.appId;
@@ -963,12 +966,14 @@ class Ford extends utils.Adapter {
    * @returns {Promise<object>} Response data
    */
   async undiciTokenRequest(url, body, extraHeaders = {}) {
+    // Header order like OkHttp's BridgeInterceptor (BridgeInterceptor.smali)
+    // Order: Content-Type, Host, Connection, Accept-Encoding, Cookie, User-Agent
     const headers = {
-      'accept-encoding': 'gzip',
-      connection: 'keep-alive',
-      'content-type': 'application/json',
-      'user-agent': 'okhttp/4.12.0',
-      'application-id': this.appId,
+      'Content-Type': 'application/json',
+      Connection: 'Keep-Alive',
+      'Accept-Encoding': 'gzip',
+      'User-Agent': 'okhttp/4.12.0',
+      'Application-Id': this.appId,
       ...extraHeaders,
     };
 
@@ -999,8 +1004,49 @@ class Ford extends utils.Adapter {
   }
 
   /**
+   * Undici request for form-urlencoded data (Autonomic token endpoint)
+   * APK uses OkHttp with User-Agent for all requests
+   */
+  async undiciFormRequest(url, formData) {
+    // Header order like OkHttp's BridgeInterceptor (BridgeInterceptor.smali)
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: '*/*',
+      Connection: 'Keep-Alive',
+      'Accept-Encoding': 'gzip',
+      'User-Agent': 'okhttp/4.12.0',
+    };
+
+    const bodyStr = qs.stringify(formData);
+
+    this.log.debug(`undici form request to ${url}`);
+    this.log.debug(`undici headers: ${JSON.stringify(headers)}`);
+
+    const { statusCode, headers: resHeaders, body: resBody } = await undiciRequest(url, {
+      method: 'POST',
+      headers: headers,
+      body: bodyStr,
+      dispatcher: this.undiciAgent,
+    });
+
+    const data = await resBody.json();
+
+    this.log.debug(`undici response status: ${statusCode}`);
+    this.log.debug(`undici response headers: ${JSON.stringify(resHeaders)}`);
+
+    if (statusCode >= 400) {
+      const error = new Error(`HTTP ${statusCode}`);
+      error.response = { status: statusCode, data: data };
+      throw error;
+    }
+
+    return data;
+  }
+
+  /**
    * Check if Ford token is expired and refresh if needed (like ha-fordpass __ensure_valid_tokens)
    * Ford token typically expires after 30 minutes
+   * ha-fordpass: now_time = time.time() + 7 (refresh only if token expires in next 7 seconds)
    */
   async ensureValidFordToken() {
     if (!this.fordExpiresAt) {
@@ -1011,8 +1057,8 @@ class Ford extends utils.Adapter {
     const now = Date.now();
     const secondsUntilExpiry = Math.floor((this.fordExpiresAt - now) / 1000);
 
-    // Refresh if expired or will expire in next 30 seconds
-    if (now + 30000 > this.fordExpiresAt) {
+    // Refresh if expired or will expire in next 7 seconds (like ha-fordpass: now_time + 7)
+    if (now + 7000 > this.fordExpiresAt) {
       this.log.info(`Ford token expired or expiring soon (${secondsUntilExpiry}s) - refreshing...`);
       await this.refreshToken();
     } else {
@@ -1025,30 +1071,20 @@ class Ford extends utils.Adapter {
     await this.ensureValidFordToken();
 
     try {
-      // CRITICAL: Must use okhttp User-Agent - OkHttp's BridgeInterceptor adds this automatically
-      // See APK: okhttp3/internal/http/BridgeInterceptor.smali line 290: "okhttp/4.12.0"
-      const res = await this.requestClient({
-        method: 'post',
-        url: 'https://accounts.autonomic.ai/v1/auth/oidc/token',
-        headers: {
-          accept: '*/*',
-          'content-type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'okhttp/4.12.0',
-        },
-        data: {
-          subject_token: this.session.access_token,
-          subject_issuer: 'fordpass',
-          client_id: 'fordpass-prod',
-          grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-          subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
-        },
+      // Use undici with HTTP/2 like APK (OkHttp supports HTTP/2)
+      const data = await this.undiciFormRequest('https://accounts.autonomic.ai/v1/auth/oidc/token', {
+        subject_token: this.session.access_token,
+        subject_issuer: 'fordpass',
+        client_id: 'fordpass-prod',
+        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+        subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
       });
 
-      this.log.debug(JSON.stringify(res.data));
-      this.autonom = res.data;
+      this.log.debug(JSON.stringify(data));
+      this.autonom = data;
       // Track token expiry time (expires_in is in seconds)
-      if (res.data.expires_in) {
-        this.autonomExpiresAt = Date.now() + res.data.expires_in * 1000;
+      if (data.expires_in) {
+        this.autonomExpiresAt = Date.now() + data.expires_in * 1000;
         this.log.debug(`Autonomic token expires at: ${new Date(this.autonomExpiresAt).toISOString()}`);
       }
       return true;
@@ -1238,12 +1274,8 @@ class Ford extends utils.Adapter {
       this.wsCurrentToken = this.autonom.access_token;
 
       // NO ping interval - ha-fordpass and APK do NOT send WebSocket pings
-      // Empty {} messages from server are used as heartbeat trigger for token refresh check
-
-      // Setup token refresh check (every 30 seconds)
-      this.wsTokenRefreshInterval = setInterval(() => {
-        this.checkAndRefreshAutonomToken();
-      }, 30000);
+      // NO fixed token refresh interval - ha-fordpass only checks on empty {} heartbeat messages
+      // Token refresh is triggered in handleWsMessage when receiving empty {} from server
 
       let buffer = Buffer.alloc(0);
 
@@ -1445,6 +1477,10 @@ class Ford extends utils.Adapter {
           }
           this.last12V = current12V;
         }
+      } else if (Object.keys(message).length === 0) {
+        // Empty {} heartbeat from server - trigger token refresh check (like ha-fordpass)
+        this.log.debug(`WebSocket heartbeat {} received - checking tokens`);
+        await this.checkAndRefreshAutonomToken();
       } else {
         this.log.debug(`WebSocket message type unknown - keys: ${Object.keys(message).join(', ')}`);
       }
