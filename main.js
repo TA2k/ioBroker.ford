@@ -91,9 +91,17 @@ class Ford extends utils.Adapter {
     this.json2iob = new Json2iob(this);
     this.last12V = 12.2;
 
-    // Undici agent with HTTP/2 support (like APK's OkHttp)
-    this.undiciAgent = new UndiciAgent({
-      allowH2: true, // APK uses OkHttp which supports HTTP/2
+    // Undici agent with HTTP/2 for Ford endpoints (like APK's OkHttp)
+    this.undiciAgentH2 = new UndiciAgent({
+      allowH2: true,
+      connect: {
+        rejectUnauthorized: true,
+      },
+    });
+
+    // Undici agent HTTP/1.1 only for Autonomic (server sends GOAWAY on HTTP/2)
+    this.undiciAgentH1 = new UndiciAgent({
+      allowH2: false,
       connect: {
         rejectUnauthorized: true,
       },
@@ -986,7 +994,7 @@ class Ford extends utils.Adapter {
       method: 'POST',
       headers: headers,
       body: bodyStr,
-      dispatcher: this.undiciAgent,
+      dispatcher: this.undiciAgentH2,
     });
 
     const data = await resBody.json();
@@ -1005,7 +1013,7 @@ class Ford extends utils.Adapter {
 
   /**
    * Undici request for form-urlencoded data (Autonomic token endpoint)
-   * APK uses OkHttp with User-Agent for all requests
+   * NOTE: Autonomic server does NOT support HTTP/2 (sends GOAWAY frame) - use H1 agent
    */
   async undiciFormRequest(url, formData) {
     // Header order like OkHttp's BridgeInterceptor (BridgeInterceptor.smali)
@@ -1022,11 +1030,12 @@ class Ford extends utils.Adapter {
     this.log.debug(`undici form request to ${url}`);
     this.log.debug(`undici headers: ${JSON.stringify(headers)}`);
 
+    // Use HTTP/1.1 agent - Autonomic server rejects HTTP/2 with GOAWAY
     const { statusCode, headers: resHeaders, body: resBody } = await undiciRequest(url, {
       method: 'POST',
       headers: headers,
       body: bodyStr,
-      dispatcher: this.undiciAgent,
+      dispatcher: this.undiciAgentH1,
     });
 
     const data = await resBody.json();
