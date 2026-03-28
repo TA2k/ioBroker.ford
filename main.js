@@ -13,8 +13,8 @@ const qs = require('qs');
 const Json2iob = require('json2iob');
 const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
-const crypto = require('crypto');
-const https = require('https');
+const crypto = require('node:crypto');
+const https = require('node:https');
 const { Agent: UndiciAgent, request: undiciRequest } = require('undici');
 class Ford extends utils.Adapter {
   /**

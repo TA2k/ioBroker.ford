@@ -14,9 +14,9 @@ const axios = require('axios').default;
 const qs = require('qs');
 const tough = require('tough-cookie');
 const { HttpsCookieAgent } = require('http-cookie-agent/http');
-const fs = require('fs');
-const readline = require('readline');
-const crypto = require('crypto');
+const fs = require('node:fs');
+const readline = require('node:readline');
+const crypto = require('node:crypto');
 
 console.log('=== FordConnect 2.0 OAuth Flow Test ===\n');
 
