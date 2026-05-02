@@ -60,6 +60,9 @@ The adapter queries cached vehicle data in regular intervals by default. To requ
 
 ## Changelog
 
+### **WORK IN PROGRESS**
+- (copilot) Adapter requires node.js >= 22 now
+
 ### 1.1.5 (2025-12-29)
 
 - update API headers to match latest FordPass app
