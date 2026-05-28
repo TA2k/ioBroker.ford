@@ -60,6 +60,10 @@ The adapter queries cached vehicle data in regular intervals by default. To requ
 
 ## Changelog
 
+
+### **WORK IN PROGRESS**
+- (ioBroker-Bot) Adapter requires js-controller >= 6.0.11 now.
+
 ### 1.1.5 (2025-12-29)
 
 - update API headers to match latest FordPass app
