@@ -1,4 +1,5 @@
 {
+  "i18n": false,
   "type": "panel",
   "items": {
     "_oauthHeader": {
@@ -6,13 +7,21 @@
       "size": 3,
       "text": "FordConnect Query API (EU Data Act)",
       "newLine": true,
-      "xs": 12
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "_oauthIntro": {
       "type": "staticText",
       "text": "This adapter uses Ford's official FordConnect Query API. Create an app at https://developer.ford.com/developer-eu (use the same email as your FordPass account), set the Redirect URI, and copy the Client ID and Client Secret into the fields below.",
       "newLine": true,
-      "xs": 12
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "clientId": {
       "type": "text",
@@ -20,7 +29,9 @@
       "newLine": true,
       "xs": 12,
       "sm": 12,
-      "md": 6
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "clientSecret": {
       "type": "password",
@@ -29,7 +40,9 @@
       "newLine": true,
       "xs": 12,
       "sm": 12,
-      "md": 6
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "redirectUri": {
       "type": "text",
@@ -38,7 +51,9 @@
       "newLine": true,
       "xs": 12,
       "sm": 12,
-      "md": 6
+      "md": 6,
+      "lg": 6,
+      "xl": 6
     },
     "interval": {
       "type": "number",
@@ -47,13 +62,19 @@
       "newLine": true,
       "xs": 12,
       "sm": 6,
-      "md": 3
+      "md": 3,
+      "lg": 3,
+      "xl": 3
     },
     "_loginInstructions": {
       "type": "staticText",
       "text": "Login:\n1. Save the Client ID, Client Secret and Redirect URI, then start the adapter.\n2. The adapter prints a login URL in the log. Open it in your browser.\n3. Log in with your FordPass account and authorize the app.\n4. You are redirected to your Redirect URI with a '?code=...' parameter.\n5. Copy the complete redirect URL from the browser address bar.\n6. Paste it into the 'Code URL' field below, save and restart the adapter.",
       "newLine": true,
-      "xs": 12
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     },
     "codeUrl": {
       "type": "text",
@@ -61,7 +82,11 @@
       "placeholder": "http://localhost:8080/callback?code=...",
       "help": "Paste the complete redirect URL containing 'code=' here and save. The adapter exchanges it for tokens on the next restart.",
       "newLine": true,
-      "xs": 12
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
     }
   }
 }

@@ -107,7 +107,7 @@ class Ford extends utils.Adapter {
     await this.getGarage();
     await this.getTelemetry();
 
-    this.updateInterval = setInterval(async () => {
+    this.updateInterval = this.setInterval(async () => {
       await this.getTelemetry();
     }, this.config.interval * 60 * 1000);
   }
@@ -432,7 +432,7 @@ class Ford extends utils.Adapter {
     try {
       this.setState('info.connection', false, true);
       if (this.updateInterval) {
-        clearInterval(this.updateInterval);
+        this.clearInterval(this.updateInterval);
         this.updateInterval = null;
       }
       callback();

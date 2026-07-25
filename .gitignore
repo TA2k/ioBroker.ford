@@ -18,3 +18,4 @@ admin/i18n/*/flat.txt
 .DS_Store
 
 .references
+.commitinfo

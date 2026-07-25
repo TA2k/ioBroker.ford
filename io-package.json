@@ -42,19 +42,6 @@
         "uk": "фіксувати потік логіна",
         "zh-cn": "固定登录流量"
       },
-      "1.0.5": {
-        "en": "Add location update option to reduce update requests",
-        "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
-        "ru": "Добавить вариант обновления местоположения для сокращения запросов на обновление",
-        "pt": "Adicionar opção de atualização de local para reduzir pedidos de atualização",
-        "nl": "Voeg locatie-update optie toe om updateverzoeken te verminderen",
-        "fr": "Ajouter une option de mise à jour pour réduire les demandes de mise à jour",
-        "it": "Aggiungere l'opzione di aggiornamento della posizione per ridurre le richieste di aggiornamento",
-        "es": "Agregar la opción de actualización de ubicación para reducir las solicitudes de actualización",
-        "pl": "Dodaj opcję aktualizacji lokalizacji w celu ograniczenia żądań aktualizacji",
-        "uk": "Додати варіант оновлення місця для зменшення запитів оновлення",
-        "zh-cn": "添加位置更新选项以减少更新请求"
-      },
       "1.0.4": {
         "en": "Add location update option to reduce update requests",
         "de": "Hinzufügen von Standort-Update-Option, um Update-Anfragen zu reduzieren",
@@ -93,35 +80,8 @@
         "pl": "dodano nowy przepływ logowania i publiczne api",
         "uk": "додано новий логінний потік і публічний api",
         "zh-cn": "添加新登录流量和公用页"
-      },
-      "0.2.3": {
-        "en": "reverted domain ending setting to fix login",
-        "de": "Domain Einstellung rückgängig gemacht um Login zu fixen",
-        "ru": "возвращенный параметр окончания домена для фиксации логина",
-        "pt": "configuração de terminação de domínio revertida para corrigir login",
-        "nl": "teruggedraaide domein einde instelling om login te repareren",
-        "fr": "réglage de fin de domaine retourné pour fixer la connexion",
-        "it": "reverted dominio che termina l'impostazione per correggere il login",
-        "es": "configuración de terminación de dominio revertido para fijar login",
-        "pl": "odwrócone ustawienie zakończenia domeny, aby naprawić logowanie",
-        "uk": "перевернути налаштування домену, щоб виправити логін",
-        "zh-cn": "返回域结束设置以固定登录"
-      },
-      "0.2.2": {
-        "en": "fixed login and added domain ending in settings",
-        "de": "Login gefixt und Domain-Ende hinzugefügt in den Einstellungen",
-        "ru": "фиксированный логин и добавленный домен, заканчивающийся в настройках",
-        "pt": "login fixo e domínio adicionado terminando em configurações",
-        "nl": "vaste login en toegevoegde domein eindigend in instellingen",
-        "fr": "connexion fixe et domaine ajouté se terminant dans les paramètres",
-        "it": "login fisso e dominio aggiunto che termina nelle impostazioni",
-        "es": "login fijo y finalización de dominio añadido en configuraciones",
-        "pl": "stałe logowanie i dodawane domeny kończące się ustawieniami",
-        "uk": "виправлений логін і додано закінчення домену в налаштуваннях",
-        "zh-cn": "在设置中固定登录和添加域结束"
       }
     },
-    "title": "Ford",
     "titleLang": {
       "en": "Ford",
       "de": "Ford",
@@ -146,11 +106,19 @@
       "pl": "Adapter do FordPass",
       "zh-cn": "FordPass 适配器"
     },
-    "authors": ["TA2k <tombox2020@gmail.com>"],
-    "keywords": ["ford", "FordPass"],
-    "license": "MIT",
+    "authors": [
+      "TA2k <tombox2020@gmail.com>"
+    ],
+    "keywords": [
+      "ford",
+      "FordPass",
+      "ioBroker"
+    ],
+    "licenseInformation": {
+      "license": "MIT",
+      "type": "free"
+    },
     "platform": "Javascript/Node.js",
-    "main": "main.js",
     "icon": "ford.png",
     "enabled": true,
     "extIcon": "https://raw.githubusercontent.com/TA2k/ioBroker.ford/master/admin/ford.png",
@@ -159,6 +127,7 @@
     "mode": "daemon",
     "type": "vehicle",
     "compact": true,
+    "tier": 2,
     "connectionType": "cloud",
     "dataSource": "poll",
     "adminUI": {
@@ -171,17 +140,21 @@
     },
     "dependencies": [
       {
-        "js-controller": ">=3.0.0"
+        "js-controller": ">=6.0.11"
       }
     ],
     "globalDependencies": [
       {
-        "admin": ">=4.0.9"
+        "admin": ">=7.6.17"
       }
     ]
   },
-  "encryptedNative": ["clientSecret"],
-  "protectedNative": ["clientSecret"],
+  "encryptedNative": [
+    "clientSecret"
+  ],
+  "protectedNative": [
+    "clientSecret"
+  ],
   "native": {
     "clientId": "",
     "clientSecret": "",
