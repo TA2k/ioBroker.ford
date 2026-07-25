@@ -52,6 +52,8 @@ class Ford extends utils.Adapter {
 
     this.subscribeStates('*');
 
+    await this.migrateOldObjects();
+
     if (!this.config.clientId || !this.config.clientSecret) {
       this.log.warn('Client ID and Client Secret are required. Please create an app at https://developer.ford.com/developer-eu and enter the credentials in the adapter settings.');
       return;
@@ -108,6 +110,57 @@ class Ford extends utils.Adapter {
     this.updateInterval = setInterval(async () => {
       await this.getTelemetry();
     }, this.config.interval * 60 * 1000);
+  }
+
+  /**
+   * One-time migration: delete objects created by the old FordPass reverse-engineered
+   * implementation (different state structure). Runs once, then sets migration.eudata=true.
+   */
+  async migrateOldObjects() {
+    await this.extendObjectAsync('migration.eudata', {
+      type: 'state',
+      common: { name: 'EU Data migration done', type: 'boolean', role: 'indicator', read: true, write: false, def: false },
+      native: {},
+    });
+
+    const done = await this.getStateAsync('migration.eudata');
+    if (done && done.val === true) {
+      return;
+    }
+
+    this.log.info('Running one-time migration: removing old objects from the previous FordPass implementation...');
+
+    // Delete every top-level device/channel except the adapter's own info + migration channels.
+    const keep = ['info', 'migration'];
+    const channels = await this.getChannelsOfAsync();
+    const devices = await this.getDevicesAsync();
+    const nodes = [...devices, ...channels];
+    const seen = new Set();
+    for (const obj of nodes) {
+      const id = obj._id.split('.')[2];
+      if (!id || keep.includes(id) || seen.has(id)) {
+        continue;
+      }
+      seen.add(id);
+      try {
+        await this.delObjectAsync(id, { recursive: true });
+        this.log.debug(`Migration: removed old object tree ${id}`);
+      } catch (error) {
+        this.log.debug(`Migration: could not remove ${id}: ${error && error.message}`);
+      }
+    }
+
+    // Old session/PKCE states are incompatible with the new token type.
+    for (const oldState of ['authV2', 'pkce']) {
+      try {
+        await this.delObjectAsync(oldState);
+      } catch {
+        // ignore if it does not exist
+      }
+    }
+
+    await this.setStateAsync('migration.eudata', { val: true, ack: true });
+    this.log.info('Migration finished.');
   }
 
   /**
