@@ -1,0 +1,67 @@
+{
+  "type": "panel",
+  "items": {
+    "_oauthHeader": {
+      "type": "header",
+      "size": 3,
+      "text": "FordConnect Query API (EU Data Act)",
+      "newLine": true,
+      "xs": 12
+    },
+    "_oauthIntro": {
+      "type": "staticText",
+      "text": "This adapter uses Ford's official FordConnect Query API. Create an app at https://developer.ford.com/developer-eu (use the same email as your FordPass account), set the Redirect URI, and copy the Client ID and Client Secret into the fields below.",
+      "newLine": true,
+      "xs": 12
+    },
+    "clientId": {
+      "type": "text",
+      "label": "Client ID",
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 6
+    },
+    "clientSecret": {
+      "type": "password",
+      "label": "Client Secret",
+      "visible": true,
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 6
+    },
+    "redirectUri": {
+      "type": "text",
+      "label": "Redirect URI",
+      "help": "Must match exactly the Redirect URI registered in the Ford developer portal.",
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 6
+    },
+    "interval": {
+      "type": "number",
+      "label": "Polling interval (minutes)",
+      "min": 1,
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 3
+    },
+    "_loginInstructions": {
+      "type": "staticText",
+      "text": "Login:\n1. Save the Client ID, Client Secret and Redirect URI, then start the adapter.\n2. The adapter prints a login URL in the log. Open it in your browser.\n3. Log in with your FordPass account and authorize the app.\n4. You are redirected to your Redirect URI with a '?code=...' parameter.\n5. Copy the complete redirect URL from the browser address bar.\n6. Paste it into the 'Code URL' field below, save and restart the adapter.",
+      "newLine": true,
+      "xs": 12
+    },
+    "codeUrl": {
+      "type": "text",
+      "label": "Code URL (paste from browser after login)",
+      "placeholder": "http://localhost:8080/callback?code=...",
+      "help": "Paste the complete redirect URL containing 'code=' here and save. The adapter exchanges it for tokens on the next restart.",
+      "newLine": true,
+      "xs": 12
+    }
+  }
+}

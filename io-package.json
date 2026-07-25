@@ -161,7 +161,9 @@
     "compact": true,
     "connectionType": "cloud",
     "dataSource": "poll",
-    "materialize": true,
+    "adminUI": {
+      "config": "json"
+    },
     "plugins": {
       "sentry": {
         "dsn": "https://c6109f629f7f4212ba9375a55670d6ce@sentry.iobroker.net/158"
@@ -178,16 +180,14 @@
       }
     ]
   },
-  "encryptedNative": [],
-  "protectedNative": [],
+  "encryptedNative": ["clientSecret"],
+  "protectedNative": ["clientSecret"],
   "native": {
-    "v2_codeUrl": "",
-    "usePolling": false,
-    "useTelemetryQuery": false,
-    "interval": 5,
-    "forceUpdate": false,
-    "skip12VCheck": false,
-    "pollLocation": false
+    "clientId": "",
+    "clientSecret": "",
+    "redirectUri": "http://localhost:8080/callback",
+    "codeUrl": "",
+    "interval": 15
   },
   "objects": [],
   "instanceObjects": [
