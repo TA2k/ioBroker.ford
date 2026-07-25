@@ -106,9 +106,11 @@ class Ford extends utils.Adapter {
     // We have a valid session -> fetch data
     await this.getGarage();
     await this.getTelemetry();
+    await this.getExtraData();
 
     this.updateInterval = this.setInterval(async () => {
       await this.getTelemetry();
+      await this.getExtraData();
     }, this.config.interval * 60 * 1000);
   }
 
@@ -393,6 +395,68 @@ class Ford extends utils.Adapter {
   }
 
   /**
+   * Additional read-only FordConnect Query endpoints (from the official
+   * FordConnect 2.0 Postman collection). Not every endpoint exists for every
+   * vehicle (e.g. wallbox/electric are EV-only), so errors are tolerated.
+   */
+  async getExtraData() {
+    const token = await this.getValidToken();
+    if (!token) {
+      return;
+    }
+    const endpoints = [
+      { path: 'vehicle-health/alerts', name: 'vehicleHealthAlerts', desc: 'Vehicle Health Alerts' },
+      { path: 'wallbox', name: 'wallbox', desc: 'Wallbox' },
+      { path: 'electric/departure-times', name: 'departureTimes', desc: 'Electric Departure Times' },
+      { path: 'electric/charge-schedules', name: 'chargeSchedules', desc: 'Electric Charge Schedules' },
+    ];
+    for (const ep of endpoints) {
+      await this.fetchQuery(token, ep);
+    }
+  }
+
+  /**
+   * Fetch a single query endpoint and write the response to states.
+   * Response items with a vin/vehicleId are stored per vehicle, otherwise
+   * under the first known vehicle.
+   * @param {string} token
+   * @param {{path: string, name: string, desc: string}} ep
+   */
+  async fetchQuery(token, ep) {
+    try {
+      const res = await this.requestClient({
+        method: 'get',
+        url: `${API_BASE}/${ep.path}`,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.data) {
+        return;
+      }
+      const items = Array.isArray(res.data) ? res.data : [res.data];
+      for (const item of items) {
+        const vin = (item && (item.vin || item.vehicleId)) || this.vinArray[0];
+        if (!vin) {
+          continue;
+        }
+        await this.json2iob.parse(`${vin}.${ep.name}`, item, {
+          autoCast: true,
+          channelName: ep.desc,
+        });
+      }
+    } catch (error) {
+      if (error.response && [400, 403, 404].includes(error.response.status)) {
+        this.log.debug(`${ep.path} not available (${error.response.status}) - skipping`);
+        return;
+      }
+      if (error.response && error.response.status === 429) {
+        this.log.debug(`Rate limit on ${ep.path} - skipping`);
+        return;
+      }
+      this.log.debug(`Failed to fetch ${ep.path}: ${error && error.message}`);
+    }
+  }
+
+  /**
    * Log an axios/request error without circular JSON issues.
    * @param {any} error
    */
@@ -420,6 +484,7 @@ class Ford extends utils.Adapter {
       const command = id.split('.').pop();
       if (command === 'refresh' && state.val) {
         await this.getTelemetry();
+        await this.getExtraData();
       }
     }
   }

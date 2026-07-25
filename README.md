@@ -39,8 +39,13 @@ The adapter exchanges the code for tokens, stores the session and refreshes it a
 
 - `{VIN}.general` - vehicle information from the garage endpoint
 - `{VIN}.telemetry` - telemetry data (SoC, range, odometer, location, tire pressure, etc.)
-- `{VIN}.remote.refresh` - button to fetch telemetry immediately
+- `{VIN}.vehicleHealthAlerts` - vehicle health alerts
+- `{VIN}.wallbox` - wallbox data (EV only, if available)
+- `{VIN}.departureTimes` - electric departure times (EV only, if available)
+- `{VIN}.chargeSchedules` - electric charge schedules (EV only, if available)
+- `{VIN}.remote.refresh` - button to fetch data immediately
 
+Endpoints that are not available for a vehicle are skipped silently.
 The FordConnect Query API is read-only, so there are no engine/lock/charge commands.
 
 ### Configuration Options
