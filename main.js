@@ -111,15 +111,8 @@ class Ford extends utils.Adapter {
     await this.getTelemetry();
     await this.getExtraData();
 
-    // Refresh the garage roughly hourly so vehicle additions/removals and a
-    // failed initial garage fetch are picked up without a restart.
-    this.garageRefreshEvery = Math.max(1, Math.round(60 / this.config.interval));
-    let tick = 0;
+    // Garage (vehicle list) only changes rarely - picked up on restart.
     this.updateInterval = this.setInterval(async () => {
-      tick++;
-      if (tick % this.garageRefreshEvery === 0) {
-        await this.getGarage();
-      }
       await this.getTelemetry();
       await this.getExtraData();
     }, this.config.interval * 60 * 1000);
