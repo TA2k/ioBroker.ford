@@ -38,6 +38,9 @@ class Ford extends utils.Adapter {
     this.updateInterval = null;
     this.requestClient = axios.create({ timeout: 30000 });
     this.json2iob = new Json2iob(this);
+    // Query endpoints that returned 404 (not available for this vehicle) are
+    // paused until the next adapter restart. In-memory Set resets on restart.
+    this.pausedEndpoints = new Set();
   }
 
   /**
@@ -481,6 +484,9 @@ class Ford extends utils.Adapter {
       { path: 'electric/charge-schedules', name: 'chargeSchedules', desc: 'Electric Charge Schedules' },
     ];
     for (const ep of endpoints) {
+      if (this.pausedEndpoints.has(ep.path)) {
+        continue;
+      }
       await this.fetchQuery(ep);
     }
   }
@@ -529,8 +535,10 @@ class Ford extends utils.Adapter {
       }
     } catch (error) {
       // 404 = endpoint not applicable for this vehicle (e.g. wallbox on non-EV).
+      // Pause it until the next restart so we do not query it every interval.
       if (error.response && error.response.status === 404) {
-        this.log.debug(`${ep.path} not available (404) - skipping`);
+        this.pausedEndpoints.add(ep.path);
+        this.log.debug(`${ep.path} not available (404) - paused until restart`);
         return;
       }
       if (error.response && error.response.status === 429) {
