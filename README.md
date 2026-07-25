@@ -49,6 +49,12 @@ The FordConnect Query API is read-only, so there are no engine/lock/charge comma
 - **Redirect URI**: Must match the URI registered in the developer portal
 - **Polling interval**: Time in minutes between automatic telemetry queries (default: 15)
 
+## What is Sentry.io and what is reported to the servers of that company?
+
+Sentry.io is a service for developers to get an overview about errors from their applications. And exactly this is implemented in this adapter.
+
+When the adapter crashes or another Code error happens, this error message that also appears in the ioBroker log is submitted to Sentry. When you allowed iobroker GmbH to collect diagnostic data then also your installation ID (this is just a random generated unique id without any additional information) is included. This allows Sentry to group errors and show how many unique users are affected by such an error. All of this helps me to provide error-free adapters that basically never crash.
+
 ## Changelog
 
 ### 2.0.0 (2026-07-25)

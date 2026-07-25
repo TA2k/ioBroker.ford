@@ -1,20 +1,20 @@
 {
   "common": {
     "name": "ford",
-    "version": "1.2.0",
+    "version": "2.0.0",
     "news": {
-      "1.2.0": {
-        "en": "Add WebSocket for real-time updates, remove x-dynatrace header to reduce account blocking",
-        "de": "WebSocket für Echtzeit-Updates hinzugefügt, x-dynatrace Header entfernt um Account-Sperrungen zu reduzieren",
-        "ru": "Добавлен WebSocket для обновлений в реальном времени, удален заголовок x-dynatrace для уменьшения блокировки аккаунта",
-        "pt": "Adicionar WebSocket para atualizações em tempo real, remover cabeçalho x-dynatrace para reduzir bloqueio de conta",
-        "nl": "WebSocket toegevoegd voor real-time updates, x-dynatrace header verwijderd om account blokkering te verminderen",
-        "fr": "Ajout de WebSocket pour les mises à jour en temps réel, suppression de l'en-tête x-dynatrace pour réduire le blocage de compte",
-        "it": "Aggiunto WebSocket per aggiornamenti in tempo reale, rimosso header x-dynatrace per ridurre il blocco dell'account",
-        "es": "Agregar WebSocket para actualizaciones en tiempo real, eliminar encabezado x-dynatrace para reducir el bloqueo de cuenta",
-        "pl": "Dodano WebSocket dla aktualizacji w czasie rzeczywistym, usunięto nagłówek x-dynatrace aby zmniejszyć blokowanie konta",
-        "uk": "Додано WebSocket для оновлень в реальному часі, видалено заголовок x-dynatrace для зменшення блокування облікового запису",
-        "zh-cn": "添加WebSocket用于实时更新，移除x-dynatrace头以减少账户封锁"
+      "2.0.0": {
+        "en": "Switch to Ford's official FordConnect Query API (EU Data Act). Removed reverse-engineered FordPass login, Autonomic token and WebSocket to avoid account blocking. Read-only telemetry, remote commands removed.",
+        "de": "Wechsel zur offiziellen FordConnect Query API von Ford (EU Data Act). Reverse-engineerter FordPass-Login, Autonomic-Token und WebSocket entfernt, um Account-Sperrungen zu vermeiden. Nur-Lese-Telemetrie, Remote-Befehle entfernt.",
+        "ru": "Переход на официальный FordConnect Query API (EU Data Act). Удалены обратно разработанный вход FordPass, токен Autonomic и WebSocket во избежание блокировки аккаунта. Телеметрия только для чтения, команды удалены.",
+        "pt": "Mudança para a API oficial FordConnect Query (EU Data Act). Login FordPass de engenharia reversa, token Autonomic e WebSocket removidos para evitar bloqueio de conta. Telemetria somente leitura, comandos removidos.",
+        "nl": "Overstap naar Ford's officiële FordConnect Query API (EU Data Act). Reverse-engineered FordPass-login, Autonomic-token en WebSocket verwijderd om accountblokkering te voorkomen. Alleen-lezen telemetrie, opdrachten verwijderd.",
+        "fr": "Passage à l'API officielle FordConnect Query de Ford (EU Data Act). Connexion FordPass rétro-ingénierée, jeton Autonomic et WebSocket supprimés pour éviter le blocage de compte. Télémétrie en lecture seule, commandes supprimées.",
+        "it": "Passaggio all'API ufficiale FordConnect Query di Ford (EU Data Act). Rimossi login FordPass reverse-engineered, token Autonomic e WebSocket per evitare il blocco dell'account. Telemetria in sola lettura, comandi rimossi.",
+        "es": "Cambio a la API oficial FordConnect Query de Ford (EU Data Act). Eliminado el inicio de sesión FordPass de ingeniería inversa, el token Autonomic y WebSocket para evitar el bloqueo de cuenta. Telemetría de solo lectura, comandos eliminados.",
+        "pl": "Przejście na oficjalne API FordConnect Query firmy Ford (EU Data Act). Usunięto odtworzone logowanie FordPass, token Autonomic i WebSocket, aby uniknąć blokowania konta. Telemetria tylko do odczytu, polecenia usunięte.",
+        "uk": "Перехід на офіційний FordConnect Query API (EU Data Act). Видалено реверс-інжинірингований вхід FordPass, токен Autonomic та WebSocket, щоб уникнути блокування облікового запису. Телеметрія лише для читання, команди видалено.",
+        "zh-cn": "切换到福特官方FordConnect Query API（欧盟数据法案）。移除逆向工程的FordPass登录、Autonomic令牌和WebSocket以避免账户封锁。只读遥测，移除远程命令。"
       },
       "1.1.5": {
         "en": "update headers and fix UI",
@@ -92,6 +92,7 @@
       "it": "Guado",
       "es": "Vado",
       "pl": "Bród",
+      "uk": "Форд",
       "zh-cn": "福特"
     },
     "desc": {
@@ -104,6 +105,7 @@
       "it": "Adattatore per FordPass",
       "es": "Adaptador para FordPass",
       "pl": "Adapter do FordPass",
+      "uk": "Адаптер для FordPass",
       "zh-cn": "FordPass 适配器"
     },
     "authors": [
@@ -111,8 +113,7 @@
     ],
     "keywords": [
       "ford",
-      "FordPass",
-      "ioBroker"
+      "FordPass"
     ],
     "licenseInformation": {
       "license": "MIT",
@@ -145,7 +146,7 @@
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.6.17"
+        "admin": ">=7.6.20"
       }
     ]
   },
