@@ -72,7 +72,7 @@ class Ford extends utils.Adapter {
       }
       await this.clearCodeUrl();
     } else {
-      // 2. Existing session -> refresh
+      // 2. Existing session -> use it, refreshing only if expired
       const auth = await this.getStateAsync('auth');
       if (auth && auth.val && typeof auth.val === 'string') {
         try {
@@ -81,10 +81,13 @@ class Ford extends utils.Adapter {
           this.log.error('Failed to parse stored session. Please re-authenticate.');
           return;
         }
-        const success = await this.refreshToken();
-        if (!success) {
+        // getValidToken refreshes only when the token is missing or about to
+        // expire - a transient refresh failure must not block a valid token.
+        const token = await this.getValidToken();
+        if (!token) {
           return;
         }
+        this.setState('info.connection', true, true);
       } else {
         // 3. No session and no code -> show login instructions
         this.log.warn('========================================');
@@ -108,7 +111,15 @@ class Ford extends utils.Adapter {
     await this.getTelemetry();
     await this.getExtraData();
 
+    // Refresh the garage roughly hourly so vehicle additions/removals and a
+    // failed initial garage fetch are picked up without a restart.
+    this.garageRefreshEvery = Math.max(1, Math.round(60 / this.config.interval));
+    let tick = 0;
     this.updateInterval = this.setInterval(async () => {
+      tick++;
+      if (tick % this.garageRefreshEvery === 0) {
+        await this.getGarage();
+      }
       await this.getTelemetry();
       await this.getExtraData();
     }, this.config.interval * 60 * 1000);
@@ -138,6 +149,7 @@ class Ford extends utils.Adapter {
     const devices = await this.getDevicesAsync();
     const nodes = [...devices, ...channels];
     const seen = new Set();
+    let failures = 0;
     for (const obj of nodes) {
       const id = obj._id.split('.')[2];
       if (!id || keep.includes(id) || seen.has(id)) {
@@ -148,12 +160,15 @@ class Ford extends utils.Adapter {
         await this.delObjectAsync(id, { recursive: true });
         this.log.debug(`Migration: removed old object tree ${id}`);
       } catch (error) {
-        this.log.debug(`Migration: could not remove ${id}: ${error && error.message}`);
+        failures++;
+        this.log.warn(`Migration: could not remove ${id}: ${error && error.message}`);
       }
     }
 
-    // Old session/PKCE states are incompatible with the new token type.
-    for (const oldState of ['authV2', 'pkce']) {
+    // Delete old, incompatible session/PKCE states. This runs BEFORE the new
+    // login writes the new "auth" session, so deleting "auth" here is safe:
+    // an old "auth" value (v1.0.x B2C token) is incompatible with the new flow.
+    for (const oldState of ['auth', 'authV2', 'pkce']) {
       try {
         await this.delObjectAsync(oldState);
       } catch {
@@ -161,8 +176,13 @@ class Ford extends utils.Adapter {
       }
     }
 
-    await this.setStateAsync('migration.eudata', { val: true, ack: true });
-    this.log.info('Migration finished.');
+    // Only mark migration as done if nothing failed, so a partial run is retried.
+    if (failures === 0) {
+      await this.setStateAsync('migration.eudata', { val: true, ack: true });
+      this.log.info('Migration finished.');
+    } else {
+      this.log.warn(`Migration incomplete (${failures} object(s) could not be removed) - will retry on next start.`);
+    }
   }
 
   /**
@@ -216,7 +236,10 @@ class Ford extends utils.Adapter {
           scope: scope,
         }).toString(),
       });
-      await this.saveSession(res.data);
+      const ok = await this.saveSession(res.data);
+      if (!ok) {
+        return false;
+      }
       this.log.info('Login successful.');
       return true;
     } catch (error) {
@@ -250,7 +273,10 @@ class Ford extends utils.Adapter {
           scope: scope,
         }).toString(),
       });
-      await this.saveSession(res.data);
+      const ok = await this.saveSession(res.data);
+      if (!ok) {
+        return false;
+      }
       this.log.debug('Token refreshed.');
       return true;
     } catch (error) {
@@ -278,10 +304,19 @@ class Ford extends utils.Adapter {
 
   /**
    * Persist the session (adds obtained_at) to the "auth" state.
+   * Validates that an access token is present and keeps the existing
+   * refresh token if the response does not include a new one.
    * @param {object} data
+   * @returns {Promise<boolean>}
    */
   async saveSession(data) {
-    this.session = { ...data, obtained_at: Date.now() };
+    if (!data || !data.access_token) {
+      this.log.error('Token response did not contain an access_token.');
+      return false;
+    }
+    // A refresh response may omit refresh_token - keep the previous one.
+    const refresh_token = data.refresh_token || this.session.refresh_token;
+    this.session = { ...data, refresh_token, obtained_at: Date.now() };
     await this.extendObjectAsync('auth', {
       type: 'state',
       common: { name: 'auth', type: 'string', role: 'json', read: true, write: true },
@@ -289,6 +324,7 @@ class Ford extends utils.Adapter {
     });
     await this.setStateAsync('auth', { val: JSON.stringify(this.session), ack: true });
     this.setState('info.connection', true, true);
+    return true;
   }
 
   /**
@@ -304,28 +340,55 @@ class Ford extends utils.Adapter {
   }
 
   /**
+   * GET a FordConnect Query endpoint with a valid token. On 401 it refreshes
+   * the token once and retries. Returns the axios response or throws.
+   * @param {string} path - path relative to API_BASE (e.g. "garage")
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  async apiGet(path) {
+    let token = await this.getValidToken();
+    if (!token) {
+      throw new Error('No valid token');
+    }
+    try {
+      return await this.requestClient({
+        method: 'get',
+        url: `${API_BASE}/${path}`,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        this.log.debug(`401 on ${path} - refreshing token and retrying once`);
+        const ok = await this.refreshToken();
+        if (!ok) {
+          throw error;
+        }
+        token = this.session.access_token;
+        return await this.requestClient({
+          method: 'get',
+          url: `${API_BASE}/${path}`,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Fetch the list of vehicles (garage) and create their objects.
    */
   async getGarage() {
-    const token = await this.getValidToken();
-    if (!token) {
-      return;
-    }
     try {
-      const res = await this.requestClient({
-        method: 'get',
-        url: `${API_BASE}/garage`,
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await this.apiGet('garage');
       const data = res.data;
       const items = Array.isArray(data) ? data : data.vehicles || [data];
-      this.vinArray = [];
+      const vins = [];
       for (const vehicle of items) {
         const vin = vehicle.vin || vehicle.vehicleId;
         if (!vin) {
           continue;
         }
-        this.vinArray.push(vin);
+        vins.push(vin);
         await this.setObjectNotExistsAsync(vin, {
           type: 'device',
           common: { name: vehicle.nickName || vehicle.nickname || vin },
@@ -348,7 +411,12 @@ class Ford extends utils.Adapter {
         });
         await this.json2iob.parse(`${vin}.general`, vehicle, { autoCast: true });
       }
-      this.log.info(`${this.vinArray.length} vehicle(s) found`);
+      // Only replace the known VIN list if we actually got vehicles, so a
+      // transient empty/failed response does not wipe it.
+      if (vins.length) {
+        this.vinArray = vins;
+      }
+      this.log.info(`${vins.length} vehicle(s) found`);
     } catch (error) {
       this.log.error('Failed to fetch garage');
       this.logRequestError(error);
@@ -359,27 +427,22 @@ class Ford extends utils.Adapter {
    * Fetch telemetry for all vehicles and write it to states.
    */
   async getTelemetry() {
-    const token = await this.getValidToken();
-    if (!token) {
-      return;
-    }
     try {
-      const res = await this.requestClient({
-        method: 'get',
-        url: `${API_BASE}/telemetry`,
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await this.apiGet('telemetry');
       if (!res.data) {
         return;
       }
       const items = Array.isArray(res.data) ? res.data : [res.data];
       for (const item of items) {
-        const vin = item.vin || item.vehicleId || this.vinArray[0];
+        const vin = this.resolveVin(item);
         if (!vin) {
-          this.log.debug('Telemetry item without VIN - skipping');
+          this.log.debug('Telemetry item without VIN and multiple/zero vehicles - skipping');
           continue;
         }
+        // forceIndex so array metrics (doors, tires, ...) get indexed paths
+        // instead of colliding on a shared field like updateTime.
         await this.json2iob.parse(`${vin}.telemetry`, item, {
+          forceIndex: true,
           autoCast: true,
           channelName: 'Telemetry',
         });
@@ -395,15 +458,29 @@ class Ford extends utils.Adapter {
   }
 
   /**
+   * Resolve the VIN for a response item. Uses the item's own vin/vehicleId,
+   * and only falls back to the single known vehicle when exactly one exists
+   * (never guesses in a multi-vehicle account).
+   * @param {any} item
+   * @returns {string | null}
+   */
+  resolveVin(item) {
+    const vin = item && (item.vin || item.vehicleId);
+    if (vin) {
+      return vin;
+    }
+    if (this.vinArray.length === 1) {
+      return this.vinArray[0];
+    }
+    return null;
+  }
+
+  /**
    * Additional read-only FordConnect Query endpoints (from the official
    * FordConnect 2.0 Postman collection). Not every endpoint exists for every
    * vehicle (e.g. wallbox/electric are EV-only), so errors are tolerated.
    */
   async getExtraData() {
-    const token = await this.getValidToken();
-    if (!token) {
-      return;
-    }
     const endpoints = [
       { path: 'vehicle-health/alerts', name: 'vehicleHealthAlerts', desc: 'Vehicle Health Alerts' },
       { path: 'wallbox', name: 'wallbox', desc: 'Wallbox' },
@@ -411,45 +488,65 @@ class Ford extends utils.Adapter {
       { path: 'electric/charge-schedules', name: 'chargeSchedules', desc: 'Electric Charge Schedules' },
     ];
     for (const ep of endpoints) {
-      await this.fetchQuery(token, ep);
+      await this.fetchQuery(ep);
     }
   }
 
   /**
    * Fetch a single query endpoint and write the response to states.
-   * Response items with a vin/vehicleId are stored per vehicle, otherwise
-   * under the first known vehicle.
-   * @param {string} token
+   * Items are grouped by their own VIN (or the single known vehicle) and the
+   * whole group array is parsed with forceIndex so multiple entries do not
+   * overwrite each other.
    * @param {{path: string, name: string, desc: string}} ep
    */
-  async fetchQuery(token, ep) {
+  async fetchQuery(ep) {
     try {
-      const res = await this.requestClient({
-        method: 'get',
-        url: `${API_BASE}/${ep.path}`,
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await this.apiGet(ep.path);
       if (!res.data) {
         return;
       }
-      const items = Array.isArray(res.data) ? res.data : [res.data];
-      for (const item of items) {
-        const vin = (item && (item.vin || item.vehicleId)) || this.vinArray[0];
+      // Non-array response (single object): write directly under the vehicle.
+      if (!Array.isArray(res.data)) {
+        const vin = this.resolveVin(res.data);
+        if (!vin) {
+          return;
+        }
+        await this.json2iob.parse(`${vin}.${ep.name}`, res.data, {
+          forceIndex: true,
+          autoCast: true,
+          channelName: ep.desc,
+        });
+        return;
+      }
+      // Array response: group by VIN, then parse each group as an indexed array.
+      const groups = {};
+      for (const item of res.data) {
+        const vin = this.resolveVin(item);
         if (!vin) {
           continue;
         }
-        await this.json2iob.parse(`${vin}.${ep.name}`, item, {
+        (groups[vin] = groups[vin] || []).push(item);
+      }
+      for (const vin of Object.keys(groups)) {
+        await this.json2iob.parse(`${vin}.${ep.name}`, groups[vin], {
+          forceIndex: true,
           autoCast: true,
           channelName: ep.desc,
         });
       }
     } catch (error) {
-      if (error.response && [400, 403, 404].includes(error.response.status)) {
-        this.log.debug(`${ep.path} not available (${error.response.status}) - skipping`);
+      // 404 = endpoint not applicable for this vehicle (e.g. wallbox on non-EV).
+      if (error.response && error.response.status === 404) {
+        this.log.debug(`${ep.path} not available (404) - skipping`);
         return;
       }
       if (error.response && error.response.status === 429) {
         this.log.debug(`Rate limit on ${ep.path} - skipping`);
+        return;
+      }
+      // 401/403 indicate an auth/consent problem, not an unavailable endpoint.
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        this.log.warn(`${ep.path} returned ${error.response.status} - check authorization/consent for this data.`);
         return;
       }
       this.log.debug(`Failed to fetch ${ep.path}: ${error && error.message}`);
