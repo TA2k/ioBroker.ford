@@ -43,9 +43,11 @@ class Ford extends utils.Adapter {
     this.pausedEndpoints = new Set();
     // FordConnect Query API rate limit is ~1 request per minute. Serialize
     // requests and keep a minimum gap between them.
-    this.minRequestGapMs = 12000;
+    this.minRequestGapMs = 60000;
     this.lastRequestAt = 0;
     this.requestChain = Promise.resolve();
+    this.isUnloading = false;
+    this.isPolling = false;
   }
 
   /**
@@ -120,10 +122,28 @@ class Ford extends utils.Adapter {
     await this.getExtraData();
 
     // Garage (vehicle list) only changes rarely - picked up on restart.
-    this.updateInterval = this.setInterval(async () => {
+    this.updateInterval = this.setInterval(() => {
+      this.poll();
+    }, this.config.interval * 60 * 1000);
+  }
+
+  /**
+   * One polling cycle. Guarded so overlapping interval ticks do not pile up
+   * requests when a cycle takes longer than the interval (each request is
+   * throttled to ~1/min, so a full cycle can span several minutes).
+   */
+  async poll() {
+    if (this.isPolling) {
+      this.log.debug('Previous poll still running - skipping this tick');
+      return;
+    }
+    this.isPolling = true;
+    try {
       await this.getTelemetry();
       await this.getExtraData();
-    }, this.config.interval * 60 * 1000);
+    } finally {
+      this.isPolling = false;
+    }
   }
 
   /**
@@ -365,64 +385,84 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * Parse a Retry-After header or a "wait N seconds" message into milliseconds.
+   * Parse a Retry-After header (numeric seconds or HTTP-date) or a
+   * "wait N seconds" message into milliseconds. Falls back to the quota gap.
    * @param {any} error
    * @returns {number}
    */
   retryDelayMs(error) {
     const header = error.response && error.response.headers && error.response.headers['retry-after'];
-    if (header && !isNaN(Number(header))) {
-      return Number(header) * 1000;
+    if (header !== undefined && header !== null && header !== '') {
+      const num = Number(header);
+      if (Number.isFinite(num) && num >= 0) {
+        return num * 1000;
+      }
+      const dateMs = Date.parse(header);
+      if (!isNaN(dateMs)) {
+        return Math.max(0, dateMs - Date.now());
+      }
     }
     const msg = error.response && error.response.data && error.response.data.message;
     const match = typeof msg === 'string' && msg.match(/(\d+)\s*second/i);
     if (match) {
       return Number(match[1]) * 1000;
     }
-    return 30000;
+    return this.minRequestGapMs;
   }
 
   /**
-   * Perform a single throttled GET with token refresh (401) and one 429 retry.
+   * Perform a single throttled GET. Retries once on 401 (refresh token) and
+   * once on 429 (wait the requested time). Both counters are independent and
+   * the token is re-validated before every attempt so the two recoveries
+   * compose (e.g. 401 -> refresh -> 429 -> wait -> success).
    * @param {string} path
    * @returns {Promise<import('axios').AxiosResponse>}
    */
   async throttledGet(path) {
-    let token = await this.getValidToken();
-    if (!token) {
-      throw new Error('No valid token');
-    }
-    const doGet = async () => {
+    let refreshLeft = 1;
+    let rateLeft = 1;
+    for (;;) {
+      if (this.isUnloading) {
+        throw new Error('Adapter is shutting down');
+      }
+      const token = await this.getValidToken();
+      if (!token) {
+        throw new Error('No valid token');
+      }
       const gap = this.minRequestGapMs - (Date.now() - this.lastRequestAt);
       if (gap > 0) {
         await this.wait(gap);
       }
+      if (this.isUnloading) {
+        throw new Error('Adapter is shutting down');
+      }
       this.lastRequestAt = Date.now();
-      return this.requestClient({
-        method: 'get',
-        url: `${API_BASE}/${path}`,
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    };
-    try {
-      return await doGet();
-    } catch (error) {
-      if (error.response && error.response.status === 401) {
-        this.log.debug(`401 on ${path} - refreshing token and retrying once`);
-        const ok = await this.refreshToken();
-        if (!ok) {
-          throw error;
+      try {
+        return await this.requestClient({
+          method: 'get',
+          url: `${API_BASE}/${path}`,
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (error) {
+        const status = error.response && error.response.status;
+        if (status === 401 && refreshLeft > 0) {
+          refreshLeft--;
+          this.log.debug(`401 on ${path} - refreshing token and retrying`);
+          const ok = await this.refreshToken();
+          if (!ok) {
+            throw error;
+          }
+          continue;
         }
-        token = this.session.access_token;
-        return await doGet();
+        if (status === 429 && rateLeft > 0) {
+          rateLeft--;
+          const delay = this.retryDelayMs(error);
+          this.log.debug(`429 on ${path} - waiting ${Math.round(delay / 1000)}s and retrying`);
+          await this.wait(delay);
+          continue;
+        }
+        throw error;
       }
-      if (error.response && error.response.status === 429) {
-        const delay = this.retryDelayMs(error);
-        this.log.debug(`429 on ${path} - waiting ${Math.round(delay / 1000)}s and retrying once`);
-        await this.wait(delay);
-        return await doGet();
-      }
-      throw error;
     }
   }
 
@@ -645,6 +685,7 @@ class Ford extends utils.Adapter {
    */
   onUnload(callback) {
     try {
+      this.isUnloading = true;
       this.setState('info.connection', false, true);
       if (this.updateInterval) {
         this.clearInterval(this.updateInterval);
