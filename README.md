@@ -62,7 +62,7 @@ When the adapter crashes or another Code error happens, this error message that 
 
 ## Changelog
 
-### 2.0.0 (2026-07-25)
+### 2.0.1 (2026-07-25)
 
 - Switch to Ford's official FordConnect Query API (EU Data Act)
 - Remove reverse-engineered FordPass login, Autonomic token and WebSocket to avoid account blocking

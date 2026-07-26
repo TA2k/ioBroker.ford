@@ -1,9 +1,9 @@
 {
   "common": {
     "name": "ford",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "news": {
-      "2.0.0": {
+      "2.0.1": {
         "en": "Switch to Ford's official FordConnect Query API (EU Data Act). Removed reverse-engineered FordPass login, Autonomic token and WebSocket to avoid account blocking. Read-only telemetry, remote commands removed.",
         "de": "Wechsel zur offiziellen FordConnect Query API von Ford (EU Data Act). Reverse-engineerter FordPass-Login, Autonomic-Token und WebSocket entfernt, um Account-Sperrungen zu vermeiden. Nur-Lese-Telemetrie, Remote-Befehle entfernt.",
         "ru": "Переход на официальный FordConnect Query API (EU Data Act). Удалены обратно разработанный вход FordPass, токен Autonomic и WebSocket во избежание блокировки аккаунта. Телеметрия только для чтения, команды удалены.",
