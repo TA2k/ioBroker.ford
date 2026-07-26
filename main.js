@@ -38,9 +38,14 @@ class Ford extends utils.Adapter {
     this.updateInterval = null;
     this.requestClient = axios.create({ timeout: 30000 });
     this.json2iob = new Json2iob(this);
-    // Query endpoints that returned 404 (not available for this vehicle) are
-    // paused until the next adapter restart. In-memory Set resets on restart.
+    // Query endpoints that returned 404/403 (not available / no consent for
+    // this vehicle) are paused until the next adapter restart.
     this.pausedEndpoints = new Set();
+    // FordConnect Query API rate limit is ~1 request per minute. Serialize
+    // requests and keep a minimum gap between them.
+    this.minRequestGapMs = 12000;
+    this.lastRequestAt = 0;
+    this.requestChain = Promise.resolve();
   }
 
   /**
@@ -336,22 +341,71 @@ class Ford extends utils.Adapter {
   }
 
   /**
-   * GET a FordConnect Query endpoint with a valid token. On 401 it refreshes
-   * the token once and retries. Returns the axios response or throws.
+   * GET a FordConnect Query endpoint with a valid token. Requests are
+   * serialized with a minimum gap (the API allows ~1 req/min). On 401 it
+   * refreshes the token once and retries; on 429 it waits the requested time
+   * and retries once. Returns the axios response or throws.
    * @param {string} path - path relative to API_BASE (e.g. "garage")
    * @returns {Promise<import('axios').AxiosResponse>}
    */
   async apiGet(path) {
+    // Chain requests so they never run concurrently and respect the min gap.
+    const run = this.requestChain.then(() => this.throttledGet(path));
+    // Keep the chain alive even if this request rejects.
+    this.requestChain = run.catch(() => {});
+    return run;
+  }
+
+  /**
+   * Sleep helper.
+   * @param {number} ms
+   */
+  wait(ms) {
+    return new Promise((resolve) => this.setTimeout(resolve, ms));
+  }
+
+  /**
+   * Parse a Retry-After header or a "wait N seconds" message into milliseconds.
+   * @param {any} error
+   * @returns {number}
+   */
+  retryDelayMs(error) {
+    const header = error.response && error.response.headers && error.response.headers['retry-after'];
+    if (header && !isNaN(Number(header))) {
+      return Number(header) * 1000;
+    }
+    const msg = error.response && error.response.data && error.response.data.message;
+    const match = typeof msg === 'string' && msg.match(/(\d+)\s*second/i);
+    if (match) {
+      return Number(match[1]) * 1000;
+    }
+    return 30000;
+  }
+
+  /**
+   * Perform a single throttled GET with token refresh (401) and one 429 retry.
+   * @param {string} path
+   * @returns {Promise<import('axios').AxiosResponse>}
+   */
+  async throttledGet(path) {
     let token = await this.getValidToken();
     if (!token) {
       throw new Error('No valid token');
     }
-    try {
-      return await this.requestClient({
+    const doGet = async () => {
+      const gap = this.minRequestGapMs - (Date.now() - this.lastRequestAt);
+      if (gap > 0) {
+        await this.wait(gap);
+      }
+      this.lastRequestAt = Date.now();
+      return this.requestClient({
         method: 'get',
         url: `${API_BASE}/${path}`,
         headers: { Authorization: `Bearer ${token}` },
       });
+    };
+    try {
+      return await doGet();
     } catch (error) {
       if (error.response && error.response.status === 401) {
         this.log.debug(`401 on ${path} - refreshing token and retrying once`);
@@ -360,11 +414,13 @@ class Ford extends utils.Adapter {
           throw error;
         }
         token = this.session.access_token;
-        return await this.requestClient({
-          method: 'get',
-          url: `${API_BASE}/${path}`,
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        return await doGet();
+      }
+      if (error.response && error.response.status === 429) {
+        const delay = this.retryDelayMs(error);
+        this.log.debug(`429 on ${path} - waiting ${Math.round(delay / 1000)}s and retrying once`);
+        await this.wait(delay);
+        return await doGet();
       }
       throw error;
     }
@@ -535,19 +591,15 @@ class Ford extends utils.Adapter {
       }
     } catch (error) {
       // 404 = endpoint not applicable for this vehicle (e.g. wallbox on non-EV).
-      // Pause it until the next restart so we do not query it every interval.
-      if (error.response && error.response.status === 404) {
+      // 403 = no consent/authorization for this data. Neither changes at
+      // runtime, so pause the endpoint until the next restart.
+      if (error.response && (error.response.status === 404 || error.response.status === 403)) {
         this.pausedEndpoints.add(ep.path);
-        this.log.debug(`${ep.path} not available (404) - paused until restart`);
+        this.log.info(`${ep.path} not available (${error.response.status}) - paused until restart`);
         return;
       }
       if (error.response && error.response.status === 429) {
         this.log.debug(`Rate limit on ${ep.path} - skipping`);
-        return;
-      }
-      // 401/403 indicate an auth/consent problem, not an unavailable endpoint.
-      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        this.log.warn(`${ep.path} returned ${error.response.status} - check authorization/consent for this data.`);
         return;
       }
       this.log.debug(`Failed to fetch ${ep.path}: ${error && error.message}`);
