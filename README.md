@@ -62,6 +62,10 @@ When the adapter crashes or another Code error happens, this error message that 
 
 ## Changelog
 
+
+### **WORK IN PROGRESS**
+- (ioBroker-Bot) Adapter requires admin >= 7.8.23 now.
+
 ### 2.0.1 (2026-07-25)
 
 - Switch to Ford's official FordConnect Query API (EU Data Act)
