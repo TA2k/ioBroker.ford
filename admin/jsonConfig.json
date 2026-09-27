@@ -2,10 +2,27 @@
   "i18n": false,
   "type": "panel",
   "items": {
+    "mode": {
+      "type": "select",
+      "label": { "en": "Mode", "de": "Modus" },
+      "options": [
+        { "label": { "en": "FordConnect Query API (official, EU Data Act)", "de": "FordConnect Query API (offiziell, EU Data Act)" }, "value": "fordconnect" },
+        { "label": { "en": "FordPass/FordTM App", "de": "FordPass/FordTM App" }, "value": "fordpass" }
+      ],
+      "default": "fordconnect",
+      "help": { "en": "FordConnect is read-only and avoids account blocking. FordPass offers real-time push and remote commands but may lead to Ford blocking your account." },
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
     "_oauthHeader": {
       "type": "header",
       "size": 3,
       "text": { "en": "FordConnect Query API (EU Data Act)" },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -16,6 +33,7 @@
     "_oauthIntro": {
       "type": "staticText",
       "text": { "en": "This adapter uses Ford's official FordConnect Query API. Create an app at https://developer.ford.com/developer-eu (use the same email as your FordPass account), set the Redirect URI, and copy the Client ID and Client Secret into the fields below." },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -26,6 +44,7 @@
     "clientId": {
       "type": "text",
       "label": { "en": "Client ID" },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -37,6 +56,7 @@
       "type": "password",
       "label": { "en": "Client Secret" },
       "visible": true,
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -48,6 +68,7 @@
       "type": "text",
       "label": { "en": "Redirect URI" },
       "help": { "en": "Must match exactly the Redirect URI registered in the Ford developer portal." },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -69,6 +90,7 @@
     "_loginInstructions": {
       "type": "staticText",
       "text": { "en": "Login:\n1. Save the Client ID, Client Secret and Redirect URI, then start the adapter.\n2. The adapter prints a login URL in the log. Open it in your browser.\n3. Log in with your FordPass account and authorize the app.\n4. You are redirected to your Redirect URI with a '?code=...' parameter.\n5. Copy the complete redirect URL from the browser address bar.\n6. Paste it into the 'Code URL' field below, save and restart the adapter." },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
@@ -81,12 +103,108 @@
       "label": { "en": "Code URL (paste from browser after login)" },
       "placeholder": { "en": "http://localhost:8080/callback?code=..." },
       "help": { "en": "Paste the complete redirect URL containing 'code=' here and save. The adapter exchanges it for tokens on the next restart." },
+      "hidden": "data.mode === 'fordpass'",
       "newLine": true,
       "xs": 12,
       "sm": 12,
       "md": 12,
       "lg": 12,
       "xl": 12
+    },
+    "_fordpassHeader": {
+      "type": "header",
+      "size": 3,
+      "text": { "en": "FordPass/FordTM App" },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
+    "_fordpassIntro": {
+      "type": "staticText",
+      "text": { "en": "Warning: this mode mimics the FordPass mobile app and may lead to Ford blocking your account. Login:\n1. Start the adapter. It prints an OAuth login URL in the log.\n2. Open Chrome, press F12 (Developer Tools) and go to the Network tab.\n3. Open the login URL, log in with your Ford account.\n4. After login the redirect will stall - this is expected.\n5. In the Network tab copy the complete URL starting with 'fordapp://userauthorized/?code='.\n6. Paste it into the 'v2 Code URL' field below, save and restart the adapter." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
+    "v2_codeUrl": {
+      "type": "text",
+      "label": { "en": "v2 Code URL (paste from browser after login)" },
+      "placeholder": { "en": "fordapp://userauthorized/?code=..." },
+      "help": { "en": "Paste the complete 'fordapp://userauthorized/?code=...' URL here and save. The adapter exchanges it for tokens on the next restart." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 12,
+      "md": 12,
+      "lg": 12,
+      "xl": 12
+    },
+    "usePolling": {
+      "type": "checkbox",
+      "label": { "en": "Use polling (default: WebSocket push only)" },
+      "help": { "en": "When off, updates come only via WebSocket push events. Turn on to additionally poll on the interval above." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "useTelemetryQuery": {
+      "type": "checkbox",
+      "label": { "en": "Use telemetry query endpoint" },
+      "help": { "en": "Poll the Autonomic telemetry query endpoint. Only takes effect when polling is enabled." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "forceUpdate": {
+      "type": "checkbox",
+      "label": { "en": "Force update (wake up vehicle)" },
+      "help": { "en": "Sends a wake-up command to the vehicle on each poll. Can drain the 12V battery. Only takes effect when polling is enabled." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "skip12VCheck": {
+      "type": "checkbox",
+      "label": { "en": "Skip 12V battery check before force update" },
+      "help": { "en": "By default a force update is skipped when the 12V battery is below 12.1V. Enable to force updates regardless." },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
+    },
+    "pollLocation": {
+      "type": "checkbox",
+      "label": { "en": "Poll location" },
+      "hidden": "data.mode !== 'fordpass'",
+      "newLine": true,
+      "xs": 12,
+      "sm": 6,
+      "md": 4,
+      "lg": 4,
+      "xl": 4
     }
   }
 }

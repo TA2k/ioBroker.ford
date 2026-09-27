@@ -19,3 +19,6 @@ admin/i18n/*/flat.txt
 
 .references
 .commitinfo
+
+# Local Claude Code config and project memory (not tracked)
+.claude/
