@@ -129,6 +129,8 @@ When the adapter crashes or another Code error happens, this error message that 
 
 - (TA2k) initial release
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## License
 
 MIT License
